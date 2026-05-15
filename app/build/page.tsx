@@ -18,7 +18,7 @@ const BUILD_PATHS: Path[] = [
     title: "Download a starter",
     subtitle:
       "Get a pre-wired project skeleton — React + Vite, single HTML, or a guide for your existing app. " +
-      "@apna/sdk 0.2.0 is already configured.",
+      "@apna/sdk 0.3.2 is already configured.",
     cta: "Browse starters",
   },
   {

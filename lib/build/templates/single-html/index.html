@@ -57,8 +57,8 @@
     /**
      * Apna SDK bootstrap — single-HTML edition.
      *
-     * The SDK UMD bundle is loaded from a CDN so this file has no build step.
-     * Replace 'https://cdn.jsdelivr.net/npm/@apna/sdk@0.2/dist/sdk.umd.production.min.js'
+     * The SDK ESM bundle is loaded from a CDN so this file has no build step.
+     * Replace 'https://esm.sh/@apna/sdk@0.3.2?bundle'
      * with a self-hosted copy if you need offline or air-gapped support.
      *
      * Publish path: Nostr-hosted (hosting: 'nostr') — see README.md.
@@ -70,7 +70,7 @@
     //    In production you can self-host the bundle if CDN access is unavailable.
     // ---------------------------------------------------------------------------
     const { ApnaApp } = await import(
-      'https://cdn.jsdelivr.net/npm/@apna/sdk@0.2/dist/sdk.esm.js'
+      'https://esm.sh/@apna/sdk@0.3.2?bundle'
     );
 
     const APP_ID = 'my-apna-single-html-app'; // change to your app's stable id

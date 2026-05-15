@@ -76,7 +76,7 @@ export default function ScaffoldPage() {
         </h1>
         <p className="text-gray-500 mb-8 text-sm">
           Each starter is pre-wired to{" "}
-          <span className="font-medium text-gray-700">@apna/sdk 0.2.0</span>.
+          <span className="font-medium text-gray-700">@apna/sdk 0.3.2</span>.
           Download, run, and publish — your app connects to the Apna host
           automatically.
         </p>

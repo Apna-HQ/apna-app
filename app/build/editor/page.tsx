@@ -31,6 +31,17 @@ import { useOpenRouteApiKey } from "@/lib/hooks/useOpenRouteApiKey";
 import { callOpenRouterApi } from "@/lib/utils/openRouterApi";
 import { generatedAppsDB, ChatMessage, GeneratedApp } from "@/lib/generatedAppsDB";
 import { createInitialMessages } from "@/lib/utils/htmlTemplates";
+import { miniAppInstanceManager } from "@/lib/apna-host/instance-manager";
+import { apnaHostCapabilities } from "@/lib/apna-host/capabilities";
+import PermissionPrompt from "@/components/organisms/PermissionPrompt";
+import type {
+  PermissionPromptRequest,
+  PermissionPromptResult,
+} from "@/lib/apna-host/permissions";
+import {
+  getDesignSelections,
+  subscribeToDesignSelections,
+} from "@/lib/apna-host/design-selections";
 import BottomNav from "@/components/organisms/BottomNav";
 import { ReplyToNote } from "@/lib/nostr";
 import { getKeyPairFromLocalStorage } from "@/lib/utils";
@@ -67,7 +78,6 @@ const STARTER_HTML = `<!DOCTYPE html>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>My Apna App</title>
-  <script src="https://unpkg.com/@apna/sdk@0.2.0/dist/browser.js"></script>
   <style>
     body { font-family: system-ui, sans-serif; padding: 2rem; }
     h1 { color: #368564; }
@@ -76,15 +86,27 @@ const STARTER_HTML = `<!DOCTYPE html>
 <body>
   <h1>Hello from Apna!</h1>
   <p id="status">Connecting…</p>
-  <script>
-    const apna = new ApnaApp({ appId: 'my-editor-app' });
-    apna.ready().then(async () => {
-      const me = await apna.identity.me();
-      document.getElementById('status').textContent =
-        'Signed in as: ' + (me?.name || me?.pubkey?.slice(0, 12) || 'unknown');
-    }).catch(err => {
-      document.getElementById('status').textContent = 'Host not connected: ' + err.message;
-    });
+  <script type="module">
+    const status = document.getElementById('status');
+
+    try {
+      const { ApnaApp } = await import(
+        'https://esm.sh/@apna/sdk@0.3.2?bundle'
+      );
+      const apna = new ApnaApp({ appId: 'my-editor-app' });
+      await apna.ready;
+      status.textContent = 'Connected to Apna host.';
+
+      try {
+        const me = await apna.identity.me();
+        status.textContent =
+          'Signed in as: ' + (me?.metadata?.name || me?.npub?.slice(0, 16) || me?.pubkey?.slice(0, 12) || 'unknown');
+      } catch (err) {
+        status.textContent = 'Connected. Profile unavailable: ' + (err instanceof Error ? err.message : String(err));
+      }
+    } catch (err) {
+      status.textContent = 'SDK init failed: ' + (err instanceof Error ? err.message : String(err));
+    }
   </script>
 </body>
 </html>`;
@@ -120,6 +142,56 @@ export default function EditorPage() {
 
   // Persist draft to IndexedDB on source change (debounced)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const permissionResolverRef = useRef<
+    ((permissions: PermissionPromptResult) => void) | null
+  >(null);
+  const [previewIframeEl, setPreviewIframeEl] =
+    useState<HTMLIFrameElement | null>(null);
+  const [permissionRequest, setPermissionRequest] =
+    useState<PermissionPromptRequest | null>(null);
+
+  const attachPreviewIframe = useCallback((el: HTMLIFrameElement | null) => {
+    setPreviewIframeEl(el);
+  }, []);
+
+  useEffect(() => {
+    if (!previewMode || !previewIframeEl) return;
+
+    const designRemote =
+      typeof window !== "undefined"
+        ? `${window.location.origin}/_next/static/chunks/remoteEntry.js`
+        : undefined;
+
+    const instance = miniAppInstanceManager.create({
+      appId: draftId ?? "build-editor-preview",
+      appName: draftName || "Build preview",
+      iframe: previewIframeEl,
+      handlers: apnaHostCapabilities,
+      designRemote,
+      permissionPrompt: (request) =>
+        new Promise((resolve) => {
+          permissionResolverRef.current = resolve;
+          setPermissionRequest(request);
+        }),
+    });
+
+    const sendInitialSelections = setTimeout(() => {
+      instance.emit("design:selections", getDesignSelections());
+    }, 500);
+
+    const unsubscribeSelections = subscribeToDesignSelections((selections) => {
+      instance.emit("design:selections", selections);
+    });
+
+    return () => {
+      clearTimeout(sendInitialSelections);
+      unsubscribeSelections();
+      instance.dispose();
+      permissionResolverRef.current?.([]);
+      permissionResolverRef.current = null;
+      setPermissionRequest(null);
+    };
+  }, [draftId, draftName, previewMode, previewIframeEl]);
 
   const saveDraft = useCallback(
     async (src: string, name: string, id: string | null) => {
@@ -397,6 +469,7 @@ export default function EditorPage() {
             {previewMode && (
               <iframe
                 key={previewKey}
+                ref={attachPreviewIframe}
                 srcDoc={source}
                 className="w-full h-full border-none"
                 sandbox="allow-scripts allow-same-origin allow-forms"
@@ -423,6 +496,31 @@ export default function EditorPage() {
       </div>
 
       <BottomNav />
+
+      {permissionRequest && (
+        <PermissionPrompt
+          open={!!permissionRequest}
+          appId={permissionRequest.appId}
+          appName={permissionRequest.appName}
+          capabilities={permissionRequest.capabilities}
+          onResolve={(permissions) => {
+            permissionResolverRef.current?.(permissions);
+            permissionResolverRef.current = null;
+            setPermissionRequest(null);
+          }}
+          onCancel={() => {
+            permissionResolverRef.current?.(
+              permissionRequest.capabilities.map((capability) => ({
+                capability,
+                decision: "deny",
+                scope: "once",
+              }))
+            );
+            permissionResolverRef.current = null;
+            setPermissionRequest(null);
+          }}
+        />
+      )}
 
       {/* ---- AI Generation Dialog ---- */}
       <Dialog open={isAiOpen} onOpenChange={setIsAiOpen}>

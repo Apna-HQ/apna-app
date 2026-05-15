@@ -1,7 +1,7 @@
 # Apna React (Vite) Mini-App Starter
 
 A production-ready starter for building Apna mini-apps with React 18 + Vite 5 +
-TypeScript. `@apna/sdk` 0.2.0 is pre-wired — you can call `apna.social`,
+TypeScript. `@apna/sdk` 0.3.2 is pre-wired — you can call `apna.social`,
 `apna.identity`, and `apna.nostr` out of the box.
 
 ## Quick start

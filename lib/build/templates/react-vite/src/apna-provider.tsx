@@ -1,7 +1,7 @@
 /**
  * apna-provider.tsx
  *
- * Bootstraps the @apna/sdk 0.2.0 ApnaApp instance and exposes it via React
+ * Bootstraps the @apna/sdk 0.3.2 ApnaApp instance and exposes it via React
  * context. Drop this file into any React mini-app — everything else (social,
  * identity, nostr) is available through `useApna()`.
  *

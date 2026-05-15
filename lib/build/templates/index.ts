@@ -30,7 +30,7 @@ export const TEMPLATES: TemplateMeta[] = [
     id: 'react-vite',
     title: 'React + Vite',
     description:
-      'A full React 18 + Vite 5 + TypeScript starter with @apna/sdk 0.2.0 pre-wired. ' +
+      'A full React 18 + Vite 5 + TypeScript starter with @apna/sdk 0.3.2 pre-wired. ' +
       'Includes an ApnaProvider, useApna() hook, and a demo UI. ' +
       'Deploy anywhere that serves static files.',
     hosting: 'url',

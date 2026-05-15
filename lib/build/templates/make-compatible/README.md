@@ -1,17 +1,17 @@
 # Make Any Web App Compatible with Apna
 
-Already have a web app? Add `@apna/sdk` 0.2.0 in under 10 minutes to give users
+Already have a web app? Add `@apna/sdk` 0.3.2 in under 10 minutes to give users
 access to their Nostr identity, social graph, and signing — without managing keys
 in your app.
 
 ## 1. Install the SDK
 
 ```bash
-npm install @apna/sdk@^0.2.0
+npm install @apna/sdk@^0.3.2
 # or
-yarn add @apna/sdk@^0.2.0
+yarn add @apna/sdk@^0.3.2
 # or
-pnpm add @apna/sdk@^0.2.0
+pnpm add @apna/sdk@^0.3.2
 ```
 
 ## 2. Bootstrap the SDK once
