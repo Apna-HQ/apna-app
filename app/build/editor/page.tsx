@@ -135,14 +135,28 @@ const STARTER_HTML = `<!DOCTYPE html>
     .name { font-weight: 600; color: #111827; }
     .npub { font-size: 0.75rem; color: #6b7280; word-break: break-all; }
     .note {
-      padding: 10px 0;
+      padding: 12px 0;
       border-top: 1px solid #f3f4f6;
       font-size: 0.875rem;
-      white-space: pre-wrap;
-      word-break: break-word;
     }
     .note:first-child { border-top: none; padding-top: 0; }
-    .note .meta { font-size: 0.7rem; color: #9ca3af; margin-bottom: 4px; }
+    .note-head {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 6px;
+    }
+    .note-avatar {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: #e6efe9; flex-shrink: 0; object-fit: cover;
+    }
+    .note-author { font-weight: 600; color: #111827; font-size: 0.85rem; line-height: 1.2; }
+    .note-author .skeleton {
+      display: inline-block; width: 110px; height: 10px;
+      background: #eef2f0; border-radius: 4px;
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
+    .note .meta { font-size: 0.7rem; color: #9ca3af; line-height: 1.2; }
+    .note-body { white-space: pre-wrap; word-break: break-word; color: #1f2937; }
     button {
       background: #368564; color: #fff;
       border: none; border-radius: 8px;
@@ -237,6 +251,10 @@ const STARTER_HTML = `<!DOCTYPE html>
     // 3. Feed — under the hood the host loads your kind-3 contact list,
     //    batches kind-1 queries across multiple relays, dedupes, sorts,
     //    and hands you a clean array. From here, it's one line.
+    //
+    //    Then we enrich every note with its author's kind-0 metadata via
+    //    apna.social.userMetadata(pubkey) — one call per unique author,
+    //    fired in parallel, dropped into the DOM as each one resolves.
     (async () => {
       try {
         const events = await apna.social.feed('FOLLOWING_FEED', { limit: 5 });
@@ -244,15 +262,45 @@ const STARTER_HTML = `<!DOCTYPE html>
           setStatus($('feed'), 'No notes yet — try following a few people on Nostr.', 'ok');
           return;
         }
+        // Render the feed body immediately with author placeholders so
+        // the user sees content right away — no waiting for N profile calls.
         $('feed').className = '';
-        $('feed').innerHTML = events.map((e) => {
+        $('feed').innerHTML = events.map((e, i) => {
           const when = new Date(e.created_at * 1000).toLocaleString();
           const body = e.content.length > 220 ? e.content.slice(0, 220) + '…' : e.content;
-          return '<div class="note">' +
-            '<div class="meta">' + esc(when) + '</div>' +
-            esc(body) +
+          return '<div class="note" data-i="' + i + '">' +
+            '<div class="note-head">' +
+              '<div class="note-avatar" id="av-' + i + '"></div>' +
+              '<div>' +
+                '<div class="note-author" id="au-' + i + '"><span class="skeleton"></span></div>' +
+                '<div class="meta">' + esc(when) + '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="note-body">' + esc(body) + '</div>' +
           '</div>';
         }).join('');
+
+        // Fan out one metadata fetch per *unique* pubkey, in parallel.
+        const uniquePubkeys = [...new Set(events.map((e) => e.pubkey))];
+        await Promise.all(uniquePubkeys.map(async (pubkey) => {
+          let meta = {};
+          try {
+            meta = (await apna.social.userMetadata(pubkey)) || {};
+          } catch (_) { /* fall back to truncated pubkey below */ }
+          const name = meta.name || meta.display_name || (pubkey.slice(0, 10) + '…');
+          const pic = meta.picture;
+          // Apply this author's profile to every note they wrote in this batch.
+          events.forEach((e, i) => {
+            if (e.pubkey !== pubkey) return;
+            const av = $('av-' + i);
+            const au = $('au-' + i);
+            if (pic && av) {
+              av.outerHTML = '<img class="note-avatar" id="av-' + i +
+                '" src="' + esc(pic) + '" alt="" referrerpolicy="no-referrer" />';
+            }
+            if (au) au.textContent = name;
+          });
+        }));
       } catch (err) {
         setStatus($('feed'), '⚠ ' + esc(err && err.message || err), 'err');
       }

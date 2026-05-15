@@ -7,7 +7,7 @@ export { DEFAULT_RELAYS } from '@/lib/constants'
 
 export const pool = new SimplePool()
 
-const QUERY_MAX_WAIT_MS = 5000
+const QUERY_MAX_WAIT_MS = 10000
 const IN_FLIGHT_DEDUPE_MS = 10000
 
 const inFlightQueries = new Map<string, Promise<NostrEvent | NostrEvent[] | null>>()

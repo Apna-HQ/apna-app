@@ -206,17 +206,26 @@ export const GetFeed = async (npub: string, feedType: string, since?: number, un
                 authors: [authorRaw]
             }, true)
             if (!existingContacts) {
-                return []
+                // Kind-3 lookup timed out / no relay had it. Surface to the
+                // caller so the UI can distinguish "couldn't load contacts"
+                // from "you follow nobody" from "nothing recent".
+                throw new Error('Could not load your follow list from any relay. Check your connection and try again.')
             }
             const followingAuthors = filterTagValues(existingContacts.tags, "p")
             if (followingAuthors.length === 0) return []
 
             // Fan out across batched author filters so a single mega-filter
-            // doesn't get throttled or dropped.
+            // doesn't get throttled or dropped, and fetch a generous slice
+            // per batch (the merge step caps to `wantLimit`).
+            const perBatchLimit = Math.max(wantLimit, 50)
             const batches = chunk(followingAuthors, AUTHOR_BATCH_SIZE)
             const results = await Promise.all(
                 batches.map((authors) =>
-                    fetchEventsFromRelays(DEFAULT_RELAYS, { ...baseFilter, authors })
+                    fetchEventsFromRelays(DEFAULT_RELAYS, {
+                        ...baseFilter,
+                        limit: perBatchLimit,
+                        authors,
+                    })
                 )
             )
 
