@@ -27,7 +27,9 @@ export interface BlossomDescriptor {
 }
 
 export interface UploadOptions {
-  /** Server origin without trailing slash. Default: first of DEFAULT_BLOSSOM_SERVERS. */
+  /** Preferred server origin without trailing slash. When set we'll try this
+   *  first and then fall through to DEFAULT_BLOSSOM_SERVERS — some servers
+   *  apply policy filters (size, quota, MIME) that a different server may not. */
   server?: string;
   /** Bech32 nsec used to sign the Kind-24242 auth event. */
   nsec: string;
@@ -59,10 +61,37 @@ export async function sha256Hex(input: Uint8Array | string): Promise<string> {
   return bytesToHex(digest);
 }
 
+/**
+ * UTF-8 safe base64. `btoa(JSON.stringify(event))` throws InvalidCharacterError
+ * for any codepoint above 0xFF (em-dashes, emoji, non-Latin1 app names…). We
+ * encode the JSON to bytes first, then base64 those bytes — works for any
+ * Unicode content.
+ */
 const base64Encode = (s: string): string => {
-  if (typeof btoa === 'function') return btoa(s);
+  const bytes = new TextEncoder().encode(s);
+  if (typeof btoa === 'function') {
+    let binary = '';
+    const CHUNK = 0x8000;
+    for (let i = 0; i < bytes.length; i += CHUNK) {
+      binary += String.fromCharCode.apply(
+        null,
+        Array.from(bytes.subarray(i, i + CHUNK))
+      );
+    }
+    return btoa(binary);
+  }
   // Node fallback (only used by tests)
-  return Buffer.from(s, 'binary').toString('base64');
+  return Buffer.from(bytes).toString('base64');
+};
+
+/**
+ * Some Blossom servers (blossom.band specifically) reject auth events whose
+ * description is empty or shorter than 8 characters. Force a non-empty value
+ * that comfortably satisfies the schema check.
+ */
+const sanitiseDescription = (raw: string | undefined): string => {
+  const trimmed = (raw ?? '').trim().slice(0, 1000);
+  return trimmed.length >= 8 ? trimmed : 'apna mini-app source upload';
 };
 
 function decodeNsec(nsec: string): Uint8Array {
@@ -109,16 +138,28 @@ async function buildUploadAuth(opts: {
  *
  *   const { url, sha256 } = await blossomUpload({ nsec, data: html });
  *
- * Falls through to the first server that accepts the upload — useful when one
- * server is offline or behind a paywall.
+ * If a preferred `server` is given we try it first, then fall back to every
+ * server in DEFAULT_BLOSSOM_SERVERS that we haven't tried yet. The publish
+ * flow uses this so a single picky server (size limit, schema quirk, quota)
+ * can't block the user when another server would happily accept the same blob.
  */
 export async function blossomUpload(opts: UploadOptions): Promise<BlossomDescriptor> {
   const bytes = toBytes(opts.data);
   const sha256 = await sha256Hex(bytes);
-  const servers = opts.server ? [opts.server] : DEFAULT_BLOSSOM_SERVERS;
-  const description = opts.description ?? 'apna mini-app source';
+  const description = sanitiseDescription(opts.description);
   const contentType = opts.contentType ?? 'text/html';
   const expirySeconds = opts.expirySeconds ?? 300;
+
+  // Build the fall-through list: preferred first, then the defaults that
+  // aren't already in front, de-duplicating on origin.
+  const preferred = opts.server ? [opts.server] : [];
+  const seen = new Set<string>();
+  const servers = [...preferred, ...DEFAULT_BLOSSOM_SERVERS].filter((s) => {
+    const key = s.replace(/\/$/, '');
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 
   const errors: string[] = [];
   for (const server of servers) {
