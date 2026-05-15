@@ -1,16 +1,28 @@
 'use server'
 
 import { unstable_cache } from 'next/cache';
-import { GetNoteReactions, GetNoteReplies, GetNpubProfileMetadata } from '@/lib/nostr';
+import { GetNoteReactions, GetNoteReplies, GetNpubProfileMetadata, GetNote } from '@/lib/nostr';
 import { Event as NostrEvent } from 'nostr-tools';
-import { AppDetails, APP_CATEGORIES, ProcessedAppEvent, AppCategory } from '@/lib/types/apps';
+import { AppDetails, APP_CATEGORIES, ProcessedAppEvent, AppCategory, AppHosting, deriveHosting } from '@/lib/types/apps';
 import { APPS_ROOT_NOTE_ID } from '@/lib/constants';
 
 interface AppDetailsJSON {
     appURL?: string;
     appName: string;
     htmlContent?: string;
+    hosting: AppHosting;
     isGeneratedApp?: boolean;
+    /**
+     * When the HTML source is too large to inline in the metadata note the
+     * publisher stores it in a separate Kind-1 Nostr event and records its id
+     * here.  The loader will fetch that event and use its `.content` as the
+     * HTML source.
+     *
+     * Convention: the metadata note also carries an `e` tag pointing at the
+     * content event (NIP-10 style) so relay indexing works, but the loader uses
+     * this explicit field for clarity.
+     */
+    contentEventId?: string;
     categories: AppCategory[];
     mode: "Full-page";
     description: string;
@@ -19,22 +31,54 @@ interface AppDetailsJSON {
 async function parseAppDetailsFromJSON(text: string): Promise<AppDetailsJSON | null> {
     try {
         const json = JSON.parse(text);
-        if (json && typeof json === 'object' && (('appURL' in json) || ('htmlContent' in json && json.isGeneratedApp === true))) {
-            return {
-                appURL: json.appURL,
-                appName: json.appName,
-                htmlContent: json.htmlContent,
-                isGeneratedApp: json.isGeneratedApp,
-                categories: Array.isArray(json.categories)
-                    ? json.categories.filter((cat: string) => APP_CATEGORIES.includes(cat as AppCategory))
-                    : ["Miscellaneous"],
-                mode: "Full-page",
-                description: json.description || `A ${json.categories?.[0] || "Miscellaneous"} app`
-            };
-        } else {
-            return null;
+        if (json && typeof json === 'object') {
+            // Accept events that carry a URL, inline HTML, a content-event reference,
+            // or the legacy isGeneratedApp flag.
+            const hasUrl = 'appURL' in json && typeof json.appURL === 'string' && json.appURL !== '';
+            const hasHtml = 'htmlContent' in json && typeof json.htmlContent === 'string' && json.htmlContent !== '';
+            const hasContentRef = 'contentEventId' in json && typeof json.contentEventId === 'string' && json.contentEventId !== '';
+            const legacyGenerated = json.isGeneratedApp === true;
+
+            if (hasUrl || hasHtml || hasContentRef || legacyGenerated) {
+                const hosting = deriveHosting({
+                    hosting: json.hosting,
+                    isGeneratedApp: json.isGeneratedApp,
+                    appURL: json.appURL,
+                });
+                return {
+                    appURL: json.appURL,
+                    appName: json.appName,
+                    htmlContent: json.htmlContent,
+                    hosting,
+                    isGeneratedApp: hosting === 'nostr', // keep back-compat alias in sync
+                    contentEventId: json.contentEventId,
+                    categories: Array.isArray(json.categories)
+                        ? json.categories.filter((cat: string) => APP_CATEGORIES.includes(cat as AppCategory))
+                        : ["Miscellaneous"],
+                    mode: "Full-page",
+                    description: json.description || `A ${json.categories?.[0] || "Miscellaneous"} app`
+                };
+            }
         }
+        return null;
     } catch (error) {
+        return null;
+    }
+}
+
+/**
+ * When a Nostr-hosted app's source is too large to inline in the metadata note
+ * the publisher stores the raw HTML in a separate Kind-1 event and records its
+ * id in `contentEventId`.  This helper fetches that event and returns its content.
+ */
+async function loadContentFromEvent(contentEventId: string): Promise<string | null> {
+    try {
+        const event = await GetNote(contentEventId);
+        if (event && event.content) {
+            return event.content;
+        }
+        return null;
+    } catch {
         return null;
     }
 }
@@ -77,10 +121,24 @@ export async function fetchAppListAction(revalidate = false): Promise<AppDetails
                     .sort((a, b) => b.created_at - a.created_at)
                     .map(async (replyEvent): Promise<ProcessedAppEvent | null> => {
                         const appDetails = await parseAppDetailsFromJSON(replyEvent.content);
-                        return appDetails ? {
+                        if (!appDetails) return null;
+
+                        // If the app source is stored in a referenced content event, load it now.
+                        if (
+                            appDetails.hosting === 'nostr' &&
+                            !appDetails.htmlContent &&
+                            appDetails.contentEventId
+                        ) {
+                            const source = await loadContentFromEvent(appDetails.contentEventId);
+                            if (source) {
+                                appDetails.htmlContent = source;
+                            }
+                        }
+
+                        return {
                             ...replyEvent,
                             ...appDetails
-                        } : null;
+                        };
                     })
             );
 
@@ -89,10 +147,10 @@ export async function fetchAppListAction(revalidate = false): Promise<AppDetails
                 event !== null &&
                 typeof event.appName === 'string' &&
                 (
-                    // External app validation
-                    (typeof event.appURL === 'string' && event.appURL !== '') ||
-                    // Generated app validation
-                    (event.isGeneratedApp === true && typeof event.htmlContent === 'string' && event.htmlContent !== '')
+                    // URL-hosted app validation
+                    (event.hosting === 'url' && typeof event.appURL === 'string' && event.appURL !== '') ||
+                    // Nostr-hosted app validation (legacy isGeneratedApp falls here too)
+                    (event.hosting === 'nostr' && typeof event.htmlContent === 'string' && event.htmlContent !== '')
                 )
             );
 
@@ -107,18 +165,28 @@ export async function fetchAppListAction(revalidate = false): Promise<AppDetails
                         updateReplies.map(async (reply: NostrEvent) => {
                             const updateDetails = await parseAppDetailsFromJSON(reply.content);
                             if (!updateDetails) return null;
-                            
-                            // Validate required fields based on app type
+
+                            // Load content from referenced event if needed (same as primary events)
+                            if (
+                                updateDetails.hosting === 'nostr' &&
+                                !updateDetails.htmlContent &&
+                                updateDetails.contentEventId
+                            ) {
+                                const source = await loadContentFromEvent(updateDetails.contentEventId);
+                                if (source) updateDetails.htmlContent = source;
+                            }
+
+                            // Validate required fields based on hosting type
                             if (
                                 !updateDetails.appName ||
                                 (
-                                    // External app validation
-                                    !updateDetails.isGeneratedApp && (!updateDetails.appURL || updateDetails.appURL === '') ||
-                                    // Generated app validation
-                                    updateDetails.isGeneratedApp && (!updateDetails.htmlContent || updateDetails.htmlContent === '')
+                                    // URL-hosted app validation
+                                    (updateDetails.hosting === 'url' && (!updateDetails.appURL || updateDetails.appURL === '')) ||
+                                    // Nostr-hosted app validation
+                                    (updateDetails.hosting === 'nostr' && (!updateDetails.htmlContent || updateDetails.htmlContent === ''))
                                 )
                             ) return null;
-                            
+
                             return {
                                 reply,
                                 details: updateDetails
@@ -181,7 +249,9 @@ export async function fetchAppListAction(revalidate = false): Promise<AppDetails
                     appURL: event.appURL,
                     appName: event.appName,
                     htmlContent: event.htmlContent,
-                    isGeneratedApp: event.isGeneratedApp,
+                    hosting: event.hosting,
+                    isGeneratedApp: event.hosting === 'nostr', // back-compat alias
+                    contentEventId: event.contentEventId,
                     id: originalEvent?.id || event.id, // Keep original note ID for reactions
                     pubkey: event.pubkey,
                     reactions,

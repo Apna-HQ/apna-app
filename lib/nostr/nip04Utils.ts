@@ -7,7 +7,10 @@ import { isRemoteSignerProfile } from '@/lib/utils'
 
 // Define the server's public key (this would be the public key of your notification server)
 export const SERVER_NPUB = process.env.NEXT_PUBLIC_SERVER_NPUB as string // Replace with your actual server npub
-export const SERVER_PUBKEY = nip19.decode(SERVER_NPUB).data as string
+// Guard the decode: NEXT_PUBLIC_SERVER_NPUB is optional and may be unset (e.g. at
+// build time / in environments without push configured). A bare nip19.decode on
+// `undefined` throws at module load and breaks `next build`.
+export const SERVER_PUBKEY = SERVER_NPUB ? (nip19.decode(SERVER_NPUB).data as string) : ''
 
 /**
  * Send an encrypted direct message to the server

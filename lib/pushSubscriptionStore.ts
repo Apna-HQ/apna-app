@@ -2,10 +2,11 @@ import { nip04 } from 'nostr-tools'
 import { Event as NostrEvent, Filter } from 'nostr-tools'
 import { SERVER_NPUB } from '@/lib/nostr/nip04Utils'
 import * as nip19 from 'nostr-tools/nip19'
-import { pool, DEFAULT_RELAYS, fetchAllFromRelay, fetchAllFromAPI } from '@/lib/nostr/core'
+import { fetchAllFromRelay } from '@/lib/nostr/core'
 
-// Decode the server's npub to get the pubkey
-const SERVER_PUBKEY = nip19.decode(SERVER_NPUB).data as string
+// Decode the server's npub to get the pubkey. SERVER_NPUB is optional and may be
+// unset at build time — guard the decode so module load doesn't throw.
+const SERVER_PUBKEY = SERVER_NPUB ? (nip19.decode(SERVER_NPUB).data as string) : ''
 export const SERVER_NSEC = process.env.SERVER_NSEC as string
 
 // Define the PushSubscription type

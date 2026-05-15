@@ -1,12 +1,14 @@
 "use client"
 import { AppIcon } from '@/components/molecules/AppIcon';
 
+const SOCIAL_MINI_APP_URL = process.env.NEXT_PUBLIC_SOCIAL_MINI_APP_URL || 'https://social-mini-app.vercel.app';
+
 // Featured apps constant array
 export const FEATURED_APPS = [
   {
     id: 'social-mini-app',
     appName: 'Social',
-    appURL: 'https://social-mini-app.vercel.app',
+    appURL: SOCIAL_MINI_APP_URL,
   },
 ] as const;
 

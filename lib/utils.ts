@@ -5,13 +5,47 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+// The three identity-source kinds a profile keypair can come from.
+export type SignerType = 'local' | 'nip07' | 'nip46';
+
 // Interface for user profiles
 export interface IUserKeyPair {
   nsec: string;
   npub: string;
   alias?: string;
   isActive?: boolean;
+  // New unified signer model. May be absent on profiles persisted before the
+  // migration — read paths normalise it via `normalizeProfile`.
+  signerType?: SignerType;
+  // Back-compat boolean. Kept on the type so old call sites still compile, but
+  // it is now *derived* from `signerType` whenever a profile is read.
   isRemoteSigner?: boolean;
+}
+
+// Derive the legacy `isRemoteSigner` boolean from a `signerType`.
+export function isRemoteSignerType(signerType?: SignerType): boolean {
+  return signerType === 'nip46';
+}
+
+// Migrate a stored profile to the new shape:
+//  - existing `isRemoteSigner === true`  -> signerType 'nip46'
+//  - everything else                     -> signerType 'local'
+//  - `isRemoteSigner` is re-derived so it always agrees with `signerType`.
+// This is idempotent: a profile already carrying `signerType` keeps it.
+export function normalizeProfile(profile: IUserKeyPair): IUserKeyPair {
+  let signerType: SignerType;
+  if (profile.signerType) {
+    signerType = profile.signerType;
+  } else if (profile.isRemoteSigner === true) {
+    signerType = 'nip46';
+  } else {
+    signerType = 'local';
+  }
+  return {
+    ...profile,
+    signerType,
+    isRemoteSigner: isRemoteSignerType(signerType),
+  };
 }
 
 // Constants for localStorage keys
@@ -21,23 +55,37 @@ const ACTIVE_PROFILE_KEY = 'active_profile_npub';
 // Get all user profiles from localStorage
 export function getAllUserProfilesFromLocalStorage(): IUserKeyPair[] {
   if (typeof window === 'undefined') return [];
-  
+
   // Check if we have profiles in the new format
   const profilesJson = localStorage.getItem(PROFILES_KEY);
   if (profilesJson) {
-    return JSON.parse(profilesJson);
+    const stored: IUserKeyPair[] = JSON.parse(profilesJson);
+    // Migrate every profile to the `signerType` model on read.
+    const migrated = stored.map(normalizeProfile);
+    // Persist the upgraded shape if anything actually changed, so the
+    // migration only happens once per profile set.
+    const changed = migrated.some((p, i) =>
+      p.signerType !== stored[i].signerType ||
+      p.isRemoteSigner !== stored[i].isRemoteSigner
+    );
+    if (changed) {
+      localStorage.setItem(PROFILES_KEY, JSON.stringify(migrated));
+    }
+    return migrated;
   }
-  
+
   // Migration: If we have old-style single profile, migrate it to the new format
   const nsec = localStorage.getItem('nsec');
   const npub = localStorage.getItem('npub');
   if (nsec && npub) {
-    const profiles = [{ nsec, npub, isActive: true }];
+    const profiles: IUserKeyPair[] = [
+      { nsec, npub, isActive: true, signerType: 'local', isRemoteSigner: false },
+    ];
     localStorage.setItem(PROFILES_KEY, JSON.stringify(profiles));
     localStorage.setItem(ACTIVE_PROFILE_KEY, npub);
     return profiles;
   }
-  
+
   return [];
 }
 
@@ -68,10 +116,16 @@ export function addUserProfileToLocalStorage(npub: string, nsec: string, setAsAc
   const existingIndex = profiles.findIndex(p => p.npub === npub);
   if (existingIndex >= 0) {
     // Update existing profile
-    profiles[existingIndex] = { nsec, npub, alias: alias || profiles[existingIndex].alias };
+    profiles[existingIndex] = {
+      nsec,
+      npub,
+      alias: alias || profiles[existingIndex].alias,
+      signerType: 'local',
+      isRemoteSigner: false,
+    };
   } else {
     // Add new profile
-    profiles.push({ nsec, npub, alias });
+    profiles.push({ nsec, npub, alias, signerType: 'local', isRemoteSigner: false });
   }
   
   localStorage.setItem(PROFILES_KEY, JSON.stringify(profiles));
@@ -190,6 +244,7 @@ export function addRemoteSignerProfileToLocalStorage(pubkey: string, bunkerUrl: 
       nsec: '', // Remote signers don't have nsec stored locally
       npub,
       alias: alias || profiles[existingIndex].alias,
+      signerType: 'nip46',
       isRemoteSigner: true
     };
   } else {
@@ -198,14 +253,55 @@ export function addRemoteSignerProfileToLocalStorage(pubkey: string, bunkerUrl: 
       nsec: '', // Remote signers don't have nsec stored locally
       npub,
       alias,
+      signerType: 'nip46',
       isRemoteSigner: true
     });
   }
-  
+
   localStorage.setItem(PROFILES_KEY, JSON.stringify(profiles));
-  
+
   if (setAsActive) {
     setActiveUserProfile(npub);
+  }
+}
+
+// Add a NIP-07 browser-extension profile to localStorage.
+// Extension profiles store only `npub` + `alias` — no `nsec` is ever held
+// locally; signing is delegated to the extension's `window.nostr` provider.
+export function addExtensionProfileToLocalStorage(npub: string, alias?: string, setAsActive: boolean = true): void {
+  if (typeof window === 'undefined') return;
+
+  // Import nip19 dynamically since it's not available in server-side rendering
+  const nip19 = require('nostr-tools/nip19');
+
+  // Ensure we have an encoded npub
+  const encodedNpub = npub.startsWith('npub') ? npub : nip19.npubEncode(npub);
+
+  const profiles = getAllUserProfilesFromLocalStorage();
+
+  const existingIndex = profiles.findIndex(p => p.npub === encodedNpub);
+  if (existingIndex >= 0) {
+    profiles[existingIndex] = {
+      nsec: '', // Extension signers don't have nsec stored locally
+      npub: encodedNpub,
+      alias: alias || profiles[existingIndex].alias,
+      signerType: 'nip07',
+      isRemoteSigner: false
+    };
+  } else {
+    profiles.push({
+      nsec: '', // Extension signers don't have nsec stored locally
+      npub: encodedNpub,
+      alias,
+      signerType: 'nip07',
+      isRemoteSigner: false
+    });
+  }
+
+  localStorage.setItem(PROFILES_KEY, JSON.stringify(profiles));
+
+  if (setAsActive) {
+    setActiveUserProfile(encodedNpub);
   }
 }
 

@@ -14,12 +14,24 @@ export interface Nip98Config {
      * Pubkeys authorized to access the push/send endpoint
      */
     pushSend: string[];
-    
+
     /**
      * Pubkeys authorized to access the push/test endpoint
      */
     pushTest: string[];
-    
+
+    /**
+     * Pubkeys authorized to access the per-mini-app notifications/send endpoint
+     * (/api/apna/notifications/send).
+     *
+     * NOTE: This list is used only as a pre-filter when callers supply an
+     * explicit allowlist.  The primary gate is the NIP-98 signature + the
+     * mini-app ownership check (the signer must be the author of a published
+     * mini-app metadata note).  Leave empty to allow any valid NIP-98 signer
+     * that owns an app, or populate it to additionally restrict to known pubkeys.
+     */
+    apnaNotificationsSend: string[];
+
     /**
      * Add more route-specific pubkey lists as needed
      */
@@ -36,18 +48,23 @@ export interface Nip98Config {
  */
 const nip98Config: Nip98Config = {
   authorizedPubkeys: {
-    // Pubkeys authorized to send push notifications
+    // Pubkeys authorized to send push notifications (admin endpoint)
     pushSend: [
       // Example: "7575b94fa81152fe529a4899d390294af142277154ce44036d50e2ad99d5c267"
       "7575b94fa81152fe529a4899d390294af142277154ce44036d50e2ad99d5c267",
     ],
-    
+
     // Pubkeys authorized to send test push notifications
     pushTest: [
       // Example: "7575b94fa81152fe529a4899d390294af142277154ce44036d50e2ad99d5c267"
       "7575b94fa81152fe529a4899d390294af142277154ce44036d50e2ad99d5c267",
     ],
-  }
+
+    // Pubkeys authorized to call POST /api/apna/notifications/send.
+    // The route already enforces NIP-98 + mini-app ownership; this list is an
+    // optional extra allowlist.  Leave empty [] to allow any app publisher.
+    apnaNotificationsSend: [],
+  },
 };
 
 export default nip98Config;

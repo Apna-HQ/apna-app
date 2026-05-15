@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Apna Mini-App</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f8faf9; padding: 16px; }
+    h1 { font-size: 22px; font-weight: 700; color: #368564; margin-bottom: 16px; }
+    h2 { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+    section { margin-bottom: 24px; }
+    button {
+      padding: 8px 16px; background: #368564; color: #fff; border: none;
+      border-radius: 8px; font-size: 14px; cursor: pointer;
+    }
+    button:disabled { opacity: 0.5; cursor: default; }
+    textarea {
+      width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb;
+      font-size: 14px; resize: vertical; display: block; margin-bottom: 8px;
+    }
+    .card {
+      padding: 12px; background: #fff; border-radius: 8px;
+      border: 1px solid #e5e7eb; font-size: 14px; margin-top: 8px;
+    }
+    #status { color: #666; font-size: 14px; margin-bottom: 12px; min-height: 20px; }
+    ul { list-style: none; padding: 0; margin-top: 12px; }
+    li { margin-bottom: 8px; }
+    img.avatar { width: 48px; height: 48px; border-radius: 50%; margin-bottom: 8px; display: block; }
+  </style>
+</head>
+<body>
+  <div style="max-width:480px;margin:0 auto">
+    <h1>My Apna Mini-App</h1>
+    <p id="status">Connecting to Apna host…</p>
+
+    <section>
+      <h2>Identity</h2>
+      <button id="btn-profile" disabled>Load my profile</button>
+      <div id="profile-card"></div>
+    </section>
+
+    <section>
+      <h2>Publish a note</h2>
+      <textarea id="note-text" placeholder="What's on your mind?" rows="3"></textarea>
+      <button id="btn-publish" disabled>Publish</button>
+    </section>
+
+    <section>
+      <h2>My recent notes</h2>
+      <button id="btn-feed" disabled>Load notes</button>
+      <ul id="notes-list"></ul>
+    </section>
+  </div>
+
+  <script type="module">
+    /**
+     * Apna SDK bootstrap — single-HTML edition.
+     *
+     * The SDK UMD bundle is loaded from a CDN so this file has no build step.
+     * Replace 'https://cdn.jsdelivr.net/npm/@apna/sdk@0.2/dist/sdk.umd.production.min.js'
+     * with a self-hosted copy if you need offline or air-gapped support.
+     *
+     * Publish path: Nostr-hosted (hosting: 'nostr') — see README.md.
+     * No URL or static hosting is required.
+     */
+
+    // ---------------------------------------------------------------------------
+    // 1. Load the SDK via dynamic import from CDN (ESM build).
+    //    In production you can self-host the bundle if CDN access is unavailable.
+    // ---------------------------------------------------------------------------
+    const { ApnaApp } = await import(
+      'https://cdn.jsdelivr.net/npm/@apna/sdk@0.2/dist/sdk.esm.js'
+    );
+
+    const APP_ID = 'my-apna-single-html-app'; // change to your app's stable id
+
+    const apna = new ApnaApp({ appId: APP_ID });
+
+    const status = document.getElementById('status');
+    const btnProfile = document.getElementById('btn-profile');
+    const btnPublish = document.getElementById('btn-publish');
+    const btnFeed = document.getElementById('btn-feed');
+    const profileCard = document.getElementById('profile-card');
+    const noteText = document.getElementById('note-text');
+    const notesList = document.getElementById('notes-list');
+
+    function setStatus(msg) { status.textContent = msg; }
+
+    // ---------------------------------------------------------------------------
+    // 2. Wait for handshake with the host.
+    // ---------------------------------------------------------------------------
+    try {
+      await apna.ready;
+      setStatus('');
+      btnProfile.disabled = false;
+      btnPublish.disabled = false;
+      btnFeed.disabled = false;
+    } catch (err) {
+      setStatus('SDK init failed: ' + err.message);
+    }
+
+    // ---------------------------------------------------------------------------
+    // 3. Feature demos — replace with your app logic.
+    // ---------------------------------------------------------------------------
+
+    btnProfile.addEventListener('click', async () => {
+      setStatus('Loading profile…');
+      try {
+        const me = await apna.identity.me();
+        profileCard.innerHTML = `
+          <div class="card">
+            ${me.picture ? `<img class="avatar" src="${me.picture}" alt="avatar">` : ''}
+            <strong>${me.name || '(no name)'}</strong>
+            ${me.about ? `<p style="font-size:13px;color:#555;margin-top:4px">${me.about}</p>` : ''}
+          </div>`;
+        setStatus('');
+      } catch (err) {
+        setStatus('Error: ' + err.message);
+      }
+    });
+
+    btnPublish.addEventListener('click', async () => {
+      const content = noteText.value.trim();
+      if (!content) return;
+      setStatus('Publishing…');
+      try {
+        await apna.social.publishNote(content);
+        noteText.value = '';
+        setStatus('Note published!');
+        setTimeout(() => setStatus(''), 2000);
+      } catch (err) {
+        setStatus('Error: ' + err.message);
+      }
+    });
+
+    btnFeed.addEventListener('click', async () => {
+      setStatus('Loading notes…');
+      try {
+        const me = await apna.identity.me();
+        const events = await apna.nostr.query({ kinds: [1], authors: [me.pubkey], limit: 10 });
+        notesList.innerHTML = events
+          .map(e => `<li><div class="card">${e.content}</div></li>`)
+          .join('');
+        setStatus('');
+      } catch (err) {
+        setStatus('Error: ' + err.message);
+      }
+    });
+  </script>
+</body>
+</html>

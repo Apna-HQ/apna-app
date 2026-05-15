@@ -1,10 +1,11 @@
-import { getPublicKey, VerifiedEvent } from 'nostr-tools'
+import { EventTemplate, getPublicKey, VerifiedEvent } from 'nostr-tools'
 import * as nip19 from 'nostr-tools/nip19'
 import { setNostrWasm, generateSecretKey, finalizeEvent, verifyEvent } from 'nostr-tools/wasm'
 import { initNostrWasm } from 'nostr-wasm'
 import { pool, DEFAULT_RELAYS } from './core'
+import { getNip07Signer } from './nip07'
 import { isRemoteSignerConnected, signEventWithRemoteSigner } from './nip46'
-import { isRemoteSignerProfile } from '@/lib/utils'
+import { getKeyPairFromLocalStorage, isRemoteSignerProfile, normalizeProfile } from '@/lib/utils'
 
 // make sure this promise resolves before your app starts calling finalizeEvent or verifyEvent
 const initPromise = initNostrWasm().then(setNostrWasm)
@@ -33,9 +34,58 @@ export const GenerateKeyPair = () => {
     return keyPair
 }
 
-export const publishEvent = async (nsecOrNpub: string, event: any) => {
+const getActiveSigningSource = (): string | 'nip07' => {
+    const stored = getKeyPairFromLocalStorage()
+    if (!stored) {
+        throw new Error("No active user profile found")
+    }
+
+    const profile = normalizeProfile(stored)
+    if (profile.signerType === 'nip07') {
+        return 'nip07'
+    }
+    if (profile.signerType === 'nip46') {
+        return profile.npub
+    }
+    if (!profile.nsec) {
+        throw new Error("Active local profile has no nsec key")
+    }
+    return profile.nsec
+}
+
+const verifySignedEvent = async (signedEvent: VerifiedEvent): Promise<VerifiedEvent> => {
+    await initPromise
+    const isGood = verifyEvent(signedEvent)
+    console.log(`signedEvent - ${JSON.stringify(signedEvent)}`)
+    if (!isGood) {
+        throw new Error("event verification failed")
+    }
+    return signedEvent
+}
+
+export function signOnly(template: EventTemplate): Promise<VerifiedEvent>
+export function signOnly(nsecOrNpub: string, template: EventTemplate): Promise<VerifiedEvent>
+export async function signOnly(
+    nsecOrNpubOrTemplate: string | EventTemplate,
+    maybeTemplate?: EventTemplate
+): Promise<VerifiedEvent> {
+    const explicitKey = typeof nsecOrNpubOrTemplate === 'string'
+    const nsecOrNpub = explicitKey
+        ? nsecOrNpubOrTemplate
+        : getActiveSigningSource()
+    const event = explicitKey ? maybeTemplate : nsecOrNpubOrTemplate
+
+    if (!event) {
+        throw new Error("event template is required")
+    }
+
+    if (nsecOrNpub === 'nip07') {
+        const signedEvent = await getNip07Signer().signEvent(event)
+        return verifySignedEvent(signedEvent)
+    }
+
     let signedEvent: VerifiedEvent;
-    
+
     // Check if the input is an npub
     if (nsecOrNpub.startsWith('npub')) {
         const decodedNpub = nip19.decode(nsecOrNpub);
@@ -74,12 +124,12 @@ export const publishEvent = async (nsecOrNpub: string, event: any) => {
         await initPromise;
         signedEvent = finalizeEvent(event, sk)
     }
-    
-    let isGood = verifyEvent(signedEvent)
-    console.log(`signedEvent - ${JSON.stringify(signedEvent)}`)
-    if (!isGood) {
-        throw new Error("event verification failed")
-    }
+
+    return verifySignedEvent(signedEvent)
+}
+
+export const publishEvent = async (nsecOrNpub: string, event: any) => {
+    const signedEvent = await signOnly(nsecOrNpub, event)
     const pub = await pool.publish(DEFAULT_RELAYS, signedEvent)
     console.log(`published event - `, pub)
     return signedEvent

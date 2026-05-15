@@ -1,6 +1,6 @@
 import * as nip19 from 'nostr-tools/nip19'
 import { Event as NostrEvent, Filter } from 'nostr-tools'
-import { fetchFromRelay, fetchAllFromRelay, subscribeToEvents as subscribeToEventsCore, fetchAllFromAPI, fetchEventsFromRelays, DEFAULT_RELAYS } from './core'
+import { fetchFromRelay, fetchAllFromRelay, subscribeToEvents as subscribeToEventsCore, fetchEventsFromRelays, DEFAULT_RELAYS } from './core'
 import { publishEvent } from './events'
 import { normalizePublicKey, normalizeNoteId } from './utils'
 import { IUnsignedEvent, IEvent } from '@apna/sdk'

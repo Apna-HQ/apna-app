@@ -236,7 +236,7 @@ export default function PushNotificationSettings() {
       
       <div className="p-3 bg-gray-50 rounded-lg text-xs text-gray-600 border border-gray-200">
         <p>
-          <strong>Server:</strong> {SERVER_NPUB.slice(0, 10)}...{SERVER_NPUB.slice(-5)}
+          <strong>Server:</strong> {SERVER_NPUB ? `${SERVER_NPUB.slice(0, 10)}...${SERVER_NPUB.slice(-5)}` : '(not configured)'}
         </p>
         <p className="mt-1">
           Your push subscription data is encrypted using Nostr NIP-04 and stored on Nostr relays.

@@ -1,223 +1,117 @@
 "use client"
-import { useState, Suspense } from 'react';
-import { useProfile } from "@/lib/hooks/useProfile";
-import { useSearchParams, useRouter } from 'next/navigation';
-import { useFavorites } from '@/lib/hooks/useFavorites';
-import { useGeneratedApps } from "@/lib/contexts/GeneratedAppsContext";
-import FeaturedApps, { FEATURED_APPS } from "@/components/organisms/FeaturedApps";
-import FavoriteAppsGrid from "@/components/organisms/FavoriteAppsGrid";
-import GeneratedAppsGrid from "@/components/organisms/GeneratedAppsGrid";
-import MiniAppModal from "@/components/organisms/MiniAppModal";
-import GeneratedAppModal from "@/components/organisms/GeneratedAppModal";
-import GenerateAppFab from "@/components/molecules/GenerateAppFab";
-import BottomNav from "@/components/organisms/BottomNav";
-import { GeneratedApp, ChatMessage } from '@/lib/generatedAppsDB';
 
-function HomeContent() {
-  const { loading: profileLoading, error: profileError } = useProfile();
-  const { favoriteApps } = useFavorites();
-  const { refreshApps } = useGeneratedApps();
-  const searchParams = useSearchParams();
+import Image from "next/image";
+import Link from "next/link";
+import { Suspense, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ArrowRight, Boxes, Code2, KeyRound } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+
+// Wrapped in Suspense below — useSearchParams() requires a Suspense boundary for
+// static prerender in Next.js 14, otherwise `next build` bails out of SSG.
+function DeepLinkRedirector() {
   const router = useRouter();
-  const [selectedApp, setSelectedApp] = useState<{
-    url?: string;
-    id: string;
-    name: string;
-    isGeneratedApp?: boolean;
-    htmlContent?: string;
-  } | null>(() => {
-    // Initialize from query params if they exist
-    const appUrl = searchParams.get('appUrl');
-    const appId = searchParams.get('appId');
-    const isGenerated = searchParams.get('isGenerated') === 'true';
-    
-    if (appId) {
-      // Try to find app from favorites or featured apps
-      const app = [...favoriteApps, ...FEATURED_APPS].find(a => a.id === appId);
-      
-      if (isGenerated && app) {
-        // Check if app is from favoriteApps (has isGeneratedApp property)
-        const isFromFavorites = 'isGeneratedApp' in app;
-        
-        return {
-          id: appId,
-          name: app.appName || '',
-          isGeneratedApp: true,
-          // Only access htmlContent if the app is from favoriteApps
-          htmlContent: isFromFavorites && 'htmlContent' in app ? app.htmlContent || '' : ''
-        };
-      } else if (appUrl) {
-        return {
-          url: appUrl,
-          id: appId,
-          name: app?.appName || ''
-        };
-      }
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const params = searchParams.toString();
+    if (searchParams.has("appId")) {
+      router.replace(`/app${params ? `?${params}` : ""}`);
     }
-    return null;
-  });
+  }, [router, searchParams]);
 
-  // State for generated app
-  const [generatedApp, setGeneratedApp] = useState<{
-    htmlContent: string;
-    id: string;
-    messages: ChatMessage[];
-    name: string;
-  } | null>(null);
+  return null;
+}
 
-  const handleAppSelect = (appURL: string | null, appId: string, appName: string, isGeneratedApp: boolean = false) => {
-    // Update URL with query params
-    const params = new URLSearchParams();
-    params.set('appId', appId);
-    
-    if (isGeneratedApp) {
-      // For generated apps
-      params.set('isGenerated', 'true');
-      
-      // Find the app in favoriteApps to get the htmlContent
-      const app = favoriteApps.find(a => a.id === appId);
-      
-      // Check if app is from favoriteApps and has isGeneratedApp property
-      const isGeneratedAppWithContent = app && 'isGeneratedApp' in app && 'htmlContent' in app;
-      
-      setSelectedApp({
-        id: appId,
-        name: appName,
-        isGeneratedApp: true,
-        // Only access htmlContent if the app is a generated app with content
-        htmlContent: isGeneratedAppWithContent ? app.htmlContent || '' : ''
-      });
-    } else if (appURL) {
-      // For external apps
-      params.set('appUrl', appURL);
-      params.set('isGenerated', 'false');
-      
-      setSelectedApp({
-        url: appURL,
-        id: appId,
-        name: appName
-      });
-    }
-    
-    router.push(`/?${params.toString()}`);
-  };
-
-  const handleModalClose = () => {
-    // Remove query params when closing
-    router.push('/');
-    setSelectedApp(null);
-  };
-
-  const handleGeneratedAppClose = () => {
-    setGeneratedApp(null);
-  };
-
-  const handleGenerateApp = (htmlContent: string, appId: string, messages: ChatMessage[], appName: string) => {
-    setGeneratedApp({
-      htmlContent,
-      id: appId,
-      messages,
-      name: appName
-    });
-  };
-
-  const handleGeneratedAppUpdate = (app: GeneratedApp) => {
-    setGeneratedApp({
-      htmlContent: app.htmlContent,
-      id: app.id,
-      messages: app.messages,
-      name: app.name
-    });
-    
-    // Refresh the apps list
-    refreshApps();
-  };
-
-  if (profileLoading) {
-    return (
-      <div className="min-h-[100dvh] bg-[#f8faf9] flex items-center justify-center">
-        <p className="text-gray-600">Initializing profile...</p>
-      </div>
-    );
-  }
-
-  if (profileError) {
-    return (
-      <div className="min-h-[100dvh] bg-[#f8faf9] flex items-center justify-center">
-        <p className="text-red-600">Failed to initialize profile: {profileError}</p>
-      </div>
-    );
-  }
-
+export default function LandingPage() {
   return (
     <>
-      <div className="min-h-[100dvh] bg-[#f8faf9] overflow-x-hidden">
-        <div className="p-4 pb-20 space-y-8">
-          <FeaturedApps
-            onAppSelect={(url, id) => {
-              const app = FEATURED_APPS.find(a => a.id === id);
-              if (app) {
-                // Featured apps are always external
-                handleAppSelect(url, id, app.appName, false);
-              }
-            }}
-          />
-          <FavoriteAppsGrid
-            onAppSelect={(url, id) => {
-              const app = favoriteApps.find(a => a.id === id);
-              if (app) {
-                // Check if this is a generated app
-                const isGenerated = 'isGeneratedApp' in app && app.isGeneratedApp === true;
-                handleAppSelect(url, id, app.appName, isGenerated);
-              }
-            }}
-          />
-          <GeneratedAppsGrid
-            onAppSelect={(htmlContent, id, prompt, name) => {
-              handleGenerateApp(htmlContent, id, prompt, name);
-            }}
-          />
-        </div>
-      </div>
-      
-      {/* Generate App FAB */}
-      <GenerateAppFab onGenerateApp={handleGenerateApp} />
-      
-      {/* Mini App Modal - handles both external and generated apps */}
-      <MiniAppModal
-        isOpen={!!selectedApp}
-        onClose={handleModalClose}
-        appUrl={selectedApp?.url || null}
-        appId={selectedApp?.id || ""}
-        appName={selectedApp?.name}
-        isGeneratedApp={selectedApp?.isGeneratedApp || false}
-        htmlContent={selectedApp?.htmlContent || null}
-      />
-      
-      {/* Generated App Modal */}
-      <GeneratedAppModal
-        isOpen={!!generatedApp}
-        onClose={handleGeneratedAppClose}
-        htmlContent={generatedApp?.htmlContent || ""}
-        appId={generatedApp?.id || ""}
-        appName={generatedApp?.name || ""}
-        messages={generatedApp?.messages || []}
-        onUpdate={handleGeneratedAppUpdate}
-      />
-      
-      <BottomNav />
+      <Suspense fallback={null}>
+        <DeepLinkRedirector />
+      </Suspense>
+      <LandingPageBody />
     </>
   );
 }
 
-export default function HomePage() {
+function LandingPageBody() {
   return (
-    <Suspense fallback={
-      <div className="min-h-[100dvh] bg-[#f8faf9] flex items-center justify-center">
-        <p className="text-gray-600">Loading...</p>
-      </div>
-    }>
-      <HomeContent />
-    </Suspense>
+    <div className="min-h-[100dvh] bg-background text-foreground">
+      <section className="relative flex min-h-[88dvh] items-center overflow-hidden px-6 py-12">
+        <Image
+          src="/icon-512x512.png"
+          alt=""
+          width={512}
+          height={512}
+          priority
+          className="absolute right-[-7rem] top-10 h-72 w-72 opacity-10 sm:right-12 sm:h-96 sm:w-96"
+        />
+        <div className="relative mx-auto grid w-full max-w-5xl gap-10 md:grid-cols-[1fr_22rem] md:items-center">
+          <div className="max-w-2xl space-y-7">
+            <div className="flex items-center gap-3">
+              <Image
+                src="/icon-192x192.png"
+                alt="Apna"
+                width={48}
+                height={48}
+                className="h-12 w-12 rounded-lg"
+              />
+              <span className="text-sm font-medium text-muted-foreground">
+                Open mini-app host
+              </span>
+            </div>
+            <div className="space-y-4">
+              <h1 className="text-5xl font-semibold leading-none sm:text-6xl">
+                Apna
+              </h1>
+              <p className="max-w-xl text-lg leading-8 text-muted-foreground">
+                A host for iframe mini-apps, Nostr-rooted identity, and an SDK
+                that lets apps ask for only the capabilities they need.
+              </p>
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Button asChild size="lg">
+                <Link href="/app">
+                  Launch App
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+              <Button asChild variant="outline" size="lg">
+                <Link href="/build">Build</Link>
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid gap-3">
+            {[
+              { icon: Boxes, label: "Discover and launch mini-apps" },
+              { icon: KeyRound, label: "Switch local, extension, and remote signers" },
+              { icon: Code2, label: "Create SDK-ready apps" },
+            ].map(({ icon: Icon, label }) => (
+              <div
+                key={label}
+                className="flex items-center gap-3 border-b py-4 last:border-b-0"
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-secondary">
+                  <Icon className="h-5 w-5" />
+                </div>
+                <p className="text-sm font-medium">{label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="border-t px-6 py-8">
+        <div className="mx-auto flex max-w-5xl flex-col gap-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+          <p>Reference host, SDK, and mini-app builder in one workspace.</p>
+          <Link className="font-medium text-foreground" href="/explore">
+            Browse public apps
+          </Link>
+        </div>
+      </section>
+    </div>
   );
 }
+

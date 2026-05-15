@@ -33,6 +33,7 @@ interface FabProps {
   onRate?: () => void;
   onClose?: () => void;
   onIterate?: () => void;
+  onProfileChange?: () => void;
   isGeneratedApp?: boolean;
 }
 
@@ -44,6 +45,7 @@ export function Fab({
   onRate,
   onClose,
   onIterate,
+  onProfileChange,
   isGeneratedApp = false
 }: FabProps) {
   const fabRef = useRef<HTMLDivElement>(null)
@@ -257,6 +259,7 @@ export function Fab({
         onProfileChange={() => {
           // Refresh keyPair when profile changes
           setKeyPair(getKeyPairFromLocalStorage())
+          onProfileChange?.()
         }}
       />
     </MotionDiv>

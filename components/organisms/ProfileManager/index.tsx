@@ -35,6 +35,7 @@ import {
   getKeyPairFromLocalStorage,
   addUserProfileToLocalStorage,
   addRemoteSignerProfileToLocalStorage,
+  addExtensionProfileToLocalStorage,
   removeUserProfileFromLocalStorage,
   setActiveUserProfile,
   getUserProfileByNpub,
@@ -43,9 +44,10 @@ import {
   IUserKeyPair
 } from "@/lib/utils"
 import { getPublicKey, nip19 } from "nostr-tools"
-import { User, KeyRound, Shuffle, Link, AlertTriangle } from "lucide-react"
+import { User, KeyRound, Shuffle, Link, AlertTriangle, Puzzle } from "lucide-react"
 import { GenerateKeyPair } from "@/lib/nostr/events"
 import { parseRemoteSignerInput, connectToRemoteSigner, disconnectFromRemoteSigner, switchActiveRemoteSignerConnection, saveRemoteSignerConnectionToLocalStorage, isRemoteSignerConnected } from "@/lib/nostr/nip46"
+import { isNip07Available, getNip07Signer } from "@/lib/nostr/nip07"
 
 const nsecFormSchema = z.object({
   nsec: z.string().startsWith("nsec", {
@@ -108,6 +110,19 @@ export default function ProfileManager({ open, onOpenChange, onProfileChange }: 
   const [importTab, setImportTab] = useState<string>("nsec")
   const [isConnecting, setIsConnecting] = useState(false)
   const [authUrl, setAuthUrl] = useState<string | null>(null)
+
+  // NIP-07 browser-extension tab state.
+  const [nip07Available, setNip07Available] = useState(false)
+  const [isConnectingExtension, setIsConnectingExtension] = useState(false)
+  const [extensionAlias, setExtensionAlias] = useState("")
+
+  // Detect a NIP-07 provider whenever the import drawer opens. `window.nostr`
+  // is injected client-side by the extension, so this must run in an effect.
+  useEffect(() => {
+    if (isImportOpen) {
+      setNip07Available(isNip07Available())
+    }
+  }, [isImportOpen])
 
   const nsecForm = useForm<z.infer<typeof nsecFormSchema>>({
     resolver: zodResolver(nsecFormSchema),
@@ -238,6 +253,54 @@ export default function ProfileManager({ open, onOpenChange, onProfileChange }: 
       setError(err instanceof Error ? err.message : "Failed to connect to remote signer")
     } finally {
       setIsConnecting(false)
+    }
+  }
+
+  async function onConnectExtension() {
+    try {
+      setIsConnectingExtension(true)
+      setError(null)
+
+      if (!isNip07Available()) {
+        throw new Error(
+          "No NIP-07 browser extension found. Install a Nostr extension (e.g. Alby or nos2x) and reload."
+        )
+      }
+
+      // Ask the extension for the user's public key, then store a `nip07`
+      // profile — no nsec is ever held locally for extension identities.
+      const signer = getNip07Signer()
+      const pubkey = await signer.getPublicKey()
+      const npub = pubkey.startsWith("npub")
+        ? pubkey
+        : nip19.npubEncode(pubkey)
+
+      const alias = extensionAlias.trim() || undefined
+      addExtensionProfileToLocalStorage(npub, alias, true)
+
+      // Best-effort: stash profile metadata like the other import paths do.
+      try {
+        const profile = { metadata: await GetNpubProfileMetadata(npub) }
+        saveProfileToLocalStorage(profile)
+      } catch {
+        // Metadata is non-critical — the profile is still usable without it.
+      }
+
+      setExtensionAlias("")
+      loadProfiles()
+      setIsImportOpen(false)
+
+      if (onProfileChange) {
+        onProfileChange()
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to connect to browser extension"
+      )
+    } finally {
+      setIsConnectingExtension(false)
     }
   }
 
@@ -516,9 +579,19 @@ export default function ProfileManager({ open, onOpenChange, onProfileChange }: 
                                 Active
                               </span>
                             )}
-                            {profile.isRemoteSigner && (
+                            {profile.signerType === 'nip46' && (
                               <span className="text-xs bg-blue-500 text-white px-2 py-0.5 rounded-full">
                                 Remote
+                              </span>
+                            )}
+                            {profile.signerType === 'nip07' && (
+                              <span className="text-xs bg-purple-500 text-white px-2 py-0.5 rounded-full">
+                                Extension
+                              </span>
+                            )}
+                            {(profile.signerType === 'local' || !profile.signerType) && (
+                              <span className="text-xs bg-gray-500 text-white px-2 py-0.5 rounded-full">
+                                Local
                               </span>
                             )}
                             {profile.npub === activeNpub && profile.isRemoteSigner && (
@@ -593,15 +666,21 @@ export default function ProfileManager({ open, onOpenChange, onProfileChange }: 
                       </DrawerDescription>
                     </DrawerHeader>
                     <Tabs value={importTab} onValueChange={setImportTab} className="w-full">
-                      <TabsList className="grid w-full grid-cols-2 mb-6 mx-4 sm:mx-6 mt-4">
+                      <TabsList className="grid w-full grid-cols-3 mb-6 mx-4 sm:mx-6 mt-4">
                         <TabsTrigger value="nsec" className="text-center">
-                          <span className="flex items-center gap-2">
+                          <span className="flex items-center gap-1.5">
                             <KeyRound className="w-4 h-4" />
                             Local Key
                           </span>
                         </TabsTrigger>
+                        <TabsTrigger value="extension" className="text-center">
+                          <span className="flex items-center gap-1.5">
+                            <Puzzle className="w-4 h-4" />
+                            Extension
+                          </span>
+                        </TabsTrigger>
                         <TabsTrigger value="remote" className="text-center">
-                          <span className="flex items-center gap-2">
+                          <span className="flex items-center gap-1.5">
                             <Link className="w-4 h-4" />
                             Remote Signer
                           </span>
@@ -683,6 +762,72 @@ export default function ProfileManager({ open, onOpenChange, onProfileChange }: 
                         </Form>
                       </TabsContent>
                       
+                      <TabsContent value="extension" className="mt-0">
+                        <div className="p-4 bg-gray-50 rounded-lg mb-4 mx-4 sm:mx-6">
+                          <div className="flex items-start gap-3">
+                            <AlertTriangle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                            <p className="text-sm text-gray-700">
+                              Browser-extension signers (NIP-07) keep your private key inside
+                              the extension. This app never sees your key — it only requests
+                              signatures and your public key.
+                            </p>
+                          </div>
+                        </div>
+                        <div className="space-y-6 p-4 sm:p-6">
+                          {nip07Available ? (
+                            <>
+                              <div className="space-y-2">
+                                <label className="text-gray-700 text-sm font-medium">
+                                  Alias (Optional)
+                                </label>
+                                <div className="relative">
+                                  <Input
+                                    placeholder="Enter a name for this profile"
+                                    value={extensionAlias}
+                                    onChange={(e) => setExtensionAlias(e.target.value)}
+                                    className="border-gray-200 focus:border-[#368564] focus:ring-[#e6efe9] pl-10"
+                                  />
+                                  <User className="w-5 h-5 text-[#368564] absolute left-3 top-1/2 transform -translate-y-1/2" />
+                                </div>
+                              </div>
+                              <Button
+                                type="button"
+                                onClick={onConnectExtension}
+                                disabled={isConnectingExtension}
+                                className="w-full bg-[#368564] hover:bg-[#2a684d] text-white font-semibold py-2 rounded-lg transition-all duration-300 shadow-sm hover:shadow-md"
+                              >
+                                {isConnectingExtension ? "Connecting..." : "Connect Browser Extension"}
+                              </Button>
+                            </>
+                          ) : (
+                            <div className="text-sm text-gray-700 space-y-2">
+                              <p className="font-medium">No NIP-07 extension detected.</p>
+                              <p>
+                                Install a Nostr browser extension such as{" "}
+                                <a
+                                  href="https://getalby.com"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[#368564] hover:underline"
+                                >
+                                  Alby
+                                </a>{" "}
+                                or{" "}
+                                <a
+                                  href="https://github.com/fiatjaf/nos2x"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[#368564] hover:underline"
+                                >
+                                  nos2x
+                                </a>
+                                , then reload this page and reopen this tab.
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </TabsContent>
+
                       <TabsContent value="remote" className="mt-0">
                         <div className="p-4 bg-gray-50 rounded-lg mb-4 mx-4 sm:mx-6">
                           <div className="flex items-start gap-3">

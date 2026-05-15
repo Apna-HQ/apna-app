@@ -23,7 +23,7 @@ export async function GET(request: Request) {
         const isGenerated = app.isGeneratedApp === true;
         
         // Build the URL with appropriate parameters
-        let url = `/?appId=${app.appId}`;
+        let url = `/app?appId=${app.appId}`;
         
         // Add appUrl parameter only for non-generated apps
         if (!isGenerated && app.appUrl) {
@@ -66,7 +66,7 @@ export async function GET(request: Request) {
     display: "standalone",
     orientation: "portrait",
     scope: "/",
-    start_url: "/",
+    start_url: "/app",
     name: "Apna",
     short_name: "Apna",
     description: "Discover and launch apps in the Apna ecosystem",

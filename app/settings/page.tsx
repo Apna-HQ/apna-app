@@ -5,6 +5,7 @@ import { PWAReinstallButton } from "@/components/PWAReinstallButton"
 import { AlertTriangle } from "lucide-react"
 import OpenRouteApiKeySettings from "@/components/molecules/OpenRouteApiKeySettings"
 import PushNotificationSettings from "@/components/molecules/PushNotificationSettings"
+import AppPermissionsSettings from "@/components/organisms/AppPermissionsSettings"
 
 export default function SettingsPage() {
   
@@ -34,6 +35,11 @@ export default function SettingsPage() {
         <section className="border rounded-lg p-4">
           <h2 className="text-lg font-semibold mb-4">API Settings</h2>
           <OpenRouteApiKeySettings />
+        </section>
+
+        <section className="border rounded-lg p-4">
+          <h2 className="text-lg font-semibold mb-4">App Permissions</h2>
+          <AppPermissionsSettings />
         </section>
 
         <section className="border rounded-lg p-4">
