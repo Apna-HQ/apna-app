@@ -73,41 +73,214 @@ import { Loader2, AlertTriangle, Eye, Pencil } from "lucide-react";
  *  48 KiB as a conservative inline limit so the metadata note stays small. */
 const INLINE_SIZE_LIMIT = 48 * 1024; // 48 KiB in bytes
 
+/**
+ * Starter app shown when the editor first opens.
+ *
+ * Designed as a "look how little code you need" demo:
+ *   - one import for the SDK
+ *   - one constructor for the host bridge
+ *   - one line each for identity, feed, and publish
+ *
+ * Every async step shows a spinner / success / error state so users
+ * can see exactly what the SDK is doing on their behalf — no silent
+ * blank screens.
+ */
 const STARTER_HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>My Apna App</title>
   <style>
-    body { font-family: system-ui, sans-serif; padding: 2rem; }
-    h1 { color: #368564; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      margin: 0;
+      padding: 16px;
+      background: #f8faf9;
+      color: #1f2937;
+      line-height: 1.5;
+    }
+    h1 { color: #368564; font-size: 1.5rem; margin: 0 0 4px; }
+    .sub { color: #6b7280; font-size: 0.875rem; margin: 0 0 16px; }
+    .card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 12px;
+    }
+    .card h2 {
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #6b7280;
+      margin: 0 0 10px;
+    }
+    .card h2 code {
+      text-transform: none;
+      letter-spacing: 0;
+      color: #368564;
+      background: #e6efe9;
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 0.95em;
+    }
+    .profile { display: flex; align-items: center; gap: 12px; }
+    .avatar {
+      width: 44px; height: 44px; border-radius: 50%;
+      background: #e6efe9; flex-shrink: 0; object-fit: cover;
+    }
+    .name { font-weight: 600; color: #111827; }
+    .npub { font-size: 0.75rem; color: #6b7280; word-break: break-all; }
+    .note {
+      padding: 10px 0;
+      border-top: 1px solid #f3f4f6;
+      font-size: 0.875rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .note:first-child { border-top: none; padding-top: 0; }
+    .note .meta { font-size: 0.7rem; color: #9ca3af; margin-bottom: 4px; }
+    button {
+      background: #368564; color: #fff;
+      border: none; border-radius: 8px;
+      padding: 10px 14px; font-size: 0.875rem; font-weight: 600;
+      cursor: pointer; width: 100%;
+    }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .status { font-size: 0.85rem; color: #6b7280; }
+    .status.ok { color: #1f2937; }
+    .status.err { color: #b91c1c; }
+    .spinner {
+      display: inline-block;
+      width: 12px; height: 12px;
+      border: 2px solid #e5e7eb;
+      border-top-color: #368564;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      vertical-align: -1px;
+      margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .hint {
+      font-size: 0.75rem; color: #9ca3af; margin-top: 16px; text-align: center;
+    }
   </style>
 </head>
 <body>
-  <h1>Hello from Apna!</h1>
-  <p id="status">Connecting…</p>
+  <h1>Hello from Apna 👋</h1>
+  <p class="sub">Each card below is <strong>one SDK call</strong>. No relay code, no signing, no nostr-tools.</p>
+
+  <div class="card">
+    <h2>Who am I — <code>apna.identity.me()</code></h2>
+    <div id="me" class="status"><span class="spinner"></span>Connecting to the Apna host…</div>
+  </div>
+
+  <div class="card">
+    <h2>Following feed — <code>apna.social.feed()</code></h2>
+    <div id="feed" class="status"><span class="spinner"></span>Loading the last 5 notes from people you follow…</div>
+  </div>
+
+  <div class="card">
+    <h2>Publish a note — <code>apna.social.publishNote()</code></h2>
+    <button id="publish" disabled>Loading SDK…</button>
+    <p id="publishStatus" class="status" style="margin-top:10px;min-height:18px;"></p>
+  </div>
+
+  <p class="hint">Edit anything in the editor — preview reloads instantly.</p>
+
   <script type="module">
-    const status = document.getElementById('status');
+    const $ = (id) => document.getElementById(id);
+    const setStatus = (el, html, cls) => {
+      el.innerHTML = html;
+      el.className = 'status' + (cls ? ' ' + cls : '');
+    };
+    const esc = (s) =>
+      String(s == null ? '' : s).replace(/[&<>"']/g, (c) => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+      ));
 
-    try {
-      const { ApnaApp } = await import(
-        'https://esm.sh/@apna/sdk@0.3.2?bundle'
-      );
-      const apna = new ApnaApp({ appId: 'my-editor-app' });
-      await apna.ready;
-      status.textContent = 'Connected to Apna host.';
+    // 1. One import + one constructor wires up the full host bridge:
+    //    capability negotiation, RPC correlation, permission gating —
+    //    all hidden behind \`await apna.ready\`.
+    const { ApnaApp } = await import('https://esm.sh/@apna/sdk@0.3.2?bundle');
+    const apna = new ApnaApp({ appId: 'my-editor-app' });
+    await apna.ready;
 
+    // 2. Identity — returns the active user's profile (npub + kind-0
+    //    metadata) without you ever touching a relay or NIP-19 encoder.
+    (async () => {
       try {
         const me = await apna.identity.me();
-        status.textContent =
-          'Signed in as: ' + (me?.metadata?.name || me?.npub?.slice(0, 16) || me?.pubkey?.slice(0, 12) || 'unknown');
+        const meta = (me && me.metadata) || {};
+        const name = meta.name || meta.display_name || 'Anonymous Nostrich';
+        const pic = meta.picture;
+        const npub = (me && (me.npub || me.pubkey)) || '';
+        setStatus($('me'),
+          '<div class="profile">' +
+          (pic
+            ? '<img class="avatar" src="' + esc(pic) + '" alt="" referrerpolicy="no-referrer" />'
+            : '<div class="avatar"></div>') +
+          '<div>' +
+            '<div class="name">' + esc(name) + '</div>' +
+            '<div class="npub">' + esc(npub.slice(0, 28)) + (npub.length > 28 ? '…' : '') + '</div>' +
+          '</div></div>',
+          'ok'
+        );
       } catch (err) {
-        status.textContent = 'Connected. Profile unavailable: ' + (err instanceof Error ? err.message : String(err));
+        setStatus($('me'), '⚠ ' + esc(err && err.message || err), 'err');
       }
-    } catch (err) {
-      status.textContent = 'SDK init failed: ' + (err instanceof Error ? err.message : String(err));
-    }
+    })();
+
+    // 3. Feed — under the hood the host loads your kind-3 contact list,
+    //    batches kind-1 queries across multiple relays, dedupes, sorts,
+    //    and hands you a clean array. From here, it's one line.
+    (async () => {
+      try {
+        const events = await apna.social.feed('FOLLOWING_FEED', { limit: 5 });
+        if (!events.length) {
+          setStatus($('feed'), 'No notes yet — try following a few people on Nostr.', 'ok');
+          return;
+        }
+        $('feed').className = '';
+        $('feed').innerHTML = events.map((e) => {
+          const when = new Date(e.created_at * 1000).toLocaleString();
+          const body = e.content.length > 220 ? e.content.slice(0, 220) + '…' : e.content;
+          return '<div class="note">' +
+            '<div class="meta">' + esc(when) + '</div>' +
+            esc(body) +
+          '</div>';
+        }).join('');
+      } catch (err) {
+        setStatus($('feed'), '⚠ ' + esc(err && err.message || err), 'err');
+      }
+    })();
+
+    // 4. Publish — one call. The host signs with the active user's key
+    //    and fans the event out to every relay they've configured.
+    const btn = $('publish');
+    btn.textContent = 'Publish "Hello from my mini-app!"';
+    btn.disabled = false;
+    btn.onclick = async () => {
+      const status = $('publishStatus');
+      btn.disabled = true;
+      setStatus(status, '<span class="spinner"></span>Asking the host to sign and broadcast…');
+      try {
+        const note = await apna.social.publishNote(
+          'Hello from my mini-app, built in the Apna browser editor!'
+        );
+        setStatus(status,
+          '✓ Published. Event id: <code>' + esc(note.id.slice(0, 16)) + '…</code>',
+          'ok'
+        );
+      } catch (err) {
+        setStatus(status, '⚠ ' + esc(err && err.message || err), 'err');
+      } finally {
+        btn.disabled = false;
+      }
+    };
   </script>
 </body>
 </html>`;
