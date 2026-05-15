@@ -177,11 +177,24 @@ export const GetNoteReposts = async (noteId: string, revalidate: boolean=false, 
     return fetchEventsFromRelays(DEFAULT_RELAYS, filter)
 }
 
+/** Most relays reject or silently drop filters with hundreds of authors. Split
+ *  the followed-author list into batches so each filter stays well under that
+ *  threshold and we can fan out queries in parallel. */
+const AUTHOR_BATCH_SIZE = 100;
+
+function chunk<T>(arr: T[], size: number): T[][] {
+    if (arr.length <= size) return [arr];
+    const out: T[][] = [];
+    for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+    return out;
+}
+
 export const GetFeed = async (npub: string, feedType: string, since?: number, until?: number, limit?: number) => {
     const authorRaw = normalizePublicKey(npub)
+    const wantLimit = limit || 20
     const baseFilter: Filter = {
         kinds: [1],
-        limit: limit || 20
+        limit: wantLimit,
     }
     if (since) baseFilter.since = since;
     if (until) baseFilter.until = until;
@@ -196,10 +209,29 @@ export const GetFeed = async (npub: string, feedType: string, since?: number, un
                 return []
             }
             const followingAuthors = filterTagValues(existingContacts.tags, "p")
-            return fetchEventsFromRelays(DEFAULT_RELAYS,{
-                ...baseFilter,
-                authors: followingAuthors
-            });
+            if (followingAuthors.length === 0) return []
+
+            // Fan out across batched author filters so a single mega-filter
+            // doesn't get throttled or dropped.
+            const batches = chunk(followingAuthors, AUTHOR_BATCH_SIZE)
+            const results = await Promise.all(
+                batches.map((authors) =>
+                    fetchEventsFromRelays(DEFAULT_RELAYS, { ...baseFilter, authors })
+                )
+            )
+
+            // Merge, dedupe by id, sort newest-first, cap to the caller's limit.
+            const seen = new Set<string>()
+            const merged: NostrEvent[] = []
+            for (const batch of results) {
+                for (const ev of batch) {
+                    if (seen.has(ev.id)) continue
+                    seen.add(ev.id)
+                    merged.push(ev)
+                }
+            }
+            merged.sort((a, b) => b.created_at - a.created_at)
+            return merged.slice(0, wantLimit)
         }
 
         case "NOTES_FEED":

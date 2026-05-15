@@ -43,6 +43,7 @@ import {
   subscribeToDesignSelections,
 } from "@/lib/apna-host/design-selections";
 import BottomNav from "@/components/organisms/BottomNav";
+import CodeEditor from "@/components/molecules/CodeEditor";
 import { ReplyToNote } from "@/lib/nostr";
 import { getKeyPairFromLocalStorage } from "@/lib/utils";
 import { APPS_ROOT_NOTE_ID } from "@/lib/constants";
@@ -449,14 +450,11 @@ export default function EditorPage() {
               previewMode ? "opacity-0 pointer-events-none" : "opacity-100"
             } transition-opacity`}
           >
-            <textarea
-              className="w-full h-full resize-none font-mono text-sm bg-gray-950 text-gray-100 p-4 outline-none leading-relaxed"
+            <CodeEditor
               value={source}
-              onChange={(e) => handleSourceChange(e.target.value)}
-              spellCheck={false}
-              autoCapitalize="none"
-              autoCorrect="off"
-              aria-label="HTML source editor"
+              onChange={handleSourceChange}
+              language="html"
+              ariaLabel="HTML source editor"
             />
           </div>
 

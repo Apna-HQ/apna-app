@@ -25,9 +25,9 @@ const BUILD_PATHS: Path[] = [
     href: "/build/editor",
     title: "Write in the browser",
     subtitle:
-      "Code, preview, and publish without leaving the host. " +
-      "Single-file apps publish entirely to Nostr — no URL or hosting required.",
+      "VS Code-powered editor with HTML/JS/CSS syntax highlighting, live preview, and one-tap publish to Nostr — no URL or hosting required.",
     cta: "Open editor",
+    badge: "Monaco",
   },
 ];
 
