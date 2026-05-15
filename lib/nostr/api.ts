@@ -73,6 +73,36 @@ export const ReplyToNote = async (noteId: string, content: string, nsecOrNpub: s
     return publishKind1(nsecOrNpub, content, tags)
 }
 
+/**
+ * Reply to a *known* root note without a relay lookup first.
+ *
+ * `ReplyToNote` fetches the parent so it can inherit upstream `e`/`p` tags
+ * (NIP-10). That's important for replies inside a thread, but for a root
+ * note we already know it has no upstream context — the fetch is pure dead
+ * weight and a source of intermittent failures: with five relays in the
+ * pool, `pool.get` can return null inside its 10s window even when the
+ * note clearly exists on at least one of them. When this fired during the
+ * app-registry publish (`APPS_ROOT_NOTE_ID`), the uploaded Blossom blob
+ * was orphaned — never registered, never shown in Explore.
+ *
+ * This helper builds the minimum-viable reply (`['e', rootId, '', 'root']`)
+ * and publishes it directly. `fetchAppList.ts` only filters by the `e`
+ * tag, so the optional `p` tag isn't required for discovery.
+ */
+export const ReplyToRootNote = async (
+    rootNoteId: string,
+    content: string,
+    nsecOrNpub: string,
+) => {
+    if (!content || content.trim() === '') {
+        throw new Error('Reply content cannot be empty')
+    }
+    const rootIdRaw = normalizeNoteId(rootNoteId)
+    return publishKind1(nsecOrNpub, content, [
+        ['e', rootIdRaw, '', 'root'],
+    ])
+}
+
 export const GetNoteReplies = async (noteId: string, direct: boolean = false) => {
     const noteIdRaw = normalizeNoteId(noteId)
     const replies = await fetchEventsFromRelays(DEFAULT_RELAYS, {

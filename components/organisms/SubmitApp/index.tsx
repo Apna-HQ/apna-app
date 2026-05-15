@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { ReplyToNote } from "@/lib/nostr"
+import { ReplyToRootNote } from "@/lib/nostr"
 import { getKeyPairFromLocalStorage } from "@/lib/utils"
 import { APP_CATEGORIES, AppCategory } from "@/lib/hooks/useApps"
 import { revalidateTags } from "@/app/actions/feedback"
@@ -226,13 +226,23 @@ export default function SubmitNewApp() {
         console.error('No keypair found');
         return;
       }
-      
+
+      // Pick the right token for the host signer — remote-signer profiles
+      // store no nsec locally, so we have to route via npub instead.
+      const signingSource =
+        existingKeyPair.signerType === 'nip07'
+          ? 'nip07'
+          : existingKeyPair.signerType === 'nip46'
+            ? existingKeyPair.npub
+            : existingKeyPair.nsec;
+
       revalidateTags(['ApnaMiniAppDetails', APPS_ROOT_NOTE_ID]);
-      // Submit the app to Nostr
-      const response = await ReplyToNote(
+      // Submit the app to Nostr — uses ReplyToRootNote which skips the
+      // parent-fetch step that was making publishes intermittently fail.
+      const response = await ReplyToRootNote(
         APPS_ROOT_NOTE_ID,
         JSON.stringify(submitData),
-        existingKeyPair.nsec
+        signingSource
       );
       
       // Get the noteId from the response (the event id)

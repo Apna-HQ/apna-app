@@ -44,7 +44,7 @@ import {
 } from "@/lib/apna-host/design-selections";
 import BottomNav from "@/components/organisms/BottomNav";
 import CodeEditor from "@/components/molecules/CodeEditor";
-import { ReplyToNote } from "@/lib/nostr";
+import { ReplyToRootNote } from "@/lib/nostr";
 import { signOnly } from "@/lib/nostr/events";
 import { blossomUpload, DEFAULT_BLOSSOM_SERVERS } from "@/lib/blossom";
 import { getKeyPairFromLocalStorage } from "@/lib/utils";
@@ -666,20 +666,22 @@ export default function EditorPage() {
       let hostingTag: "nostr-inline" | "nostr-content-event" | "blossom";
       let blossomDescriptor: { url: string; sha256: string } | null = null;
 
+      // Resolve the right token for the host's signer abstraction. Remote-
+      // signer (NIP-46) profiles store no nsec locally, so we have to route
+      // via the npub. Used by both the Blossom upload AND the metadata-note
+      // publish below — every step needs to support every signer type.
+      const signingSource =
+        keyPair.signerType === "nip07"
+          ? "nip07"
+          : keyPair.signerType === "nip46"
+            ? keyPair.npub
+            : keyPair.nsec;
+
       if (hostingChoice === "blossom") {
         // 1) Upload to Blossom first. We delegate signing of the Kind-24242
-        //    auth event to the host's `signOnly()` so the upload works for any
-        //    profile type — local nsec, NIP-07 extension, or NIP-46 remote
-        //    bunker. Remote-signer profiles intentionally don't store an nsec
-        //    locally, so passing `keyPair.nsec` directly would only work for
-        //    local profiles.
+        //    auth event to the host's `signOnly()` so the upload works for
+        //    any profile type.
         setPublishStep(`Uploading source to ${blossomServer}…`);
-        const signingSource =
-          keyPair.signerType === "nip07"
-            ? "nip07"
-            : keyPair.signerType === "nip46"
-              ? keyPair.npub
-              : keyPair.nsec;
         const descriptor = await blossomUpload({
           server: blossomServer,
           signEvent: async (template) => signOnly(signingSource, template),
@@ -717,10 +719,10 @@ export default function EditorPage() {
         // reference it via contentEventId. fetchAppList.ts then fetches that
         // event and uses its `.content` as the HTML source.
         setPublishStep("Publishing source as a Nostr content event…");
-        const contentEvent = await ReplyToNote(
+        const contentEvent = await ReplyToRootNote(
           APPS_ROOT_NOTE_ID,
           source,
-          keyPair.nsec
+          signingSource
         );
         if (!contentEvent?.id) throw new Error("Failed to publish content event.");
         hostingTag = "nostr-content-event";
@@ -736,10 +738,10 @@ export default function EditorPage() {
       }
 
       setPublishStep("Signing & broadcasting metadata note…");
-      const response = await ReplyToNote(
+      const response = await ReplyToRootNote(
         APPS_ROOT_NOTE_ID,
         JSON.stringify(submitData),
-        keyPair.nsec
+        signingSource
       );
 
       // Update draft published status if it's in the DB
