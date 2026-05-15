@@ -181,6 +181,36 @@ const STARTER_HTML = `<!DOCTYPE html>
     .hint {
       font-size: 0.75rem; color: #9ca3af; margin-top: 16px; text-align: center;
     }
+    .controls {
+      display: flex; gap: 6px; align-items: center;
+      margin-bottom: 10px; flex-wrap: wrap;
+    }
+    .controls label {
+      font-size: 0.7rem; color: #6b7280;
+      text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .pill {
+      background: #fff; border: 1px solid #d1d5db;
+      border-radius: 999px; padding: 3px 10px;
+      font-size: 0.75rem; cursor: pointer;
+      color: #374151; transition: all 0.15s;
+      width: auto; font-weight: 500;
+    }
+    .pill.active {
+      background: #368564; border-color: #368564; color: #fff;
+    }
+    .pill:disabled { opacity: 0.5; cursor: not-allowed; }
+    .ghost-btn {
+      background: transparent; color: #368564;
+      border: 1px solid #368564; border-radius: 8px;
+      padding: 8px 14px; font-size: 0.8rem; font-weight: 600;
+      cursor: pointer; width: 100%; margin-top: 10px;
+    }
+    .ghost-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .meter {
+      font-size: 0.7rem; color: #9ca3af; text-align: right;
+      margin-top: 8px;
+    }
   </style>
 </head>
 <body>
@@ -194,7 +224,15 @@ const STARTER_HTML = `<!DOCTYPE html>
 
   <div class="card">
     <h2>Following feed — <code>apna.social.feed()</code></h2>
-    <div id="feed" class="status"><span class="spinner"></span>Loading the last 5 notes from people you follow…</div>
+    <div class="controls">
+      <label>limit</label>
+      <button class="pill" data-limit="5">5</button>
+      <button class="pill active" data-limit="10">10</button>
+      <button class="pill" data-limit="20">20</button>
+    </div>
+    <div id="feed" class="status"><span class="spinner"></span>Loading notes from people you follow…</div>
+    <button id="loadOlder" class="ghost-btn" style="display:none;">Load older notes ↓</button>
+    <p id="feedMeter" class="meter"></p>
   </div>
 
   <div class="card">
@@ -252,59 +290,139 @@ const STARTER_HTML = `<!DOCTYPE html>
     //    batches kind-1 queries across multiple relays, dedupes, sorts,
     //    and hands you a clean array. From here, it's one line.
     //
-    //    Then we enrich every note with its author's kind-0 metadata via
-    //    apna.social.userMetadata(pubkey) — one call per unique author,
-    //    fired in parallel, dropped into the DOM as each one resolves.
-    (async () => {
-      try {
-        const events = await apna.social.feed('FOLLOWING_FEED', { limit: 5 });
-        if (!events.length) {
-          setStatus($('feed'), 'No notes yet — try following a few people on Nostr.', 'ok');
-          return;
-        }
-        // Render the feed body immediately with author placeholders so
-        // the user sees content right away — no waiting for N profile calls.
-        $('feed').className = '';
-        $('feed').innerHTML = events.map((e, i) => {
-          const when = new Date(e.created_at * 1000).toLocaleString();
-          const body = e.content.length > 220 ? e.content.slice(0, 220) + '…' : e.content;
-          return '<div class="note" data-i="' + i + '">' +
-            '<div class="note-head">' +
-              '<div class="note-avatar" id="av-' + i + '"></div>' +
-              '<div>' +
-                '<div class="note-author" id="au-' + i + '"><span class="skeleton"></span></div>' +
-                '<div class="meta">' + esc(when) + '</div>' +
-              '</div>' +
-            '</div>' +
-            '<div class="note-body">' + esc(body) + '</div>' +
-          '</div>';
-        }).join('');
+    //    This card showcases three knobs of the same call:
+    //      • limit  → fetch N notes (pick a pill: 5 / 10 / 20)
+    //      • until  → pagination cursor for "load older"
+    //      • since  → (used by refresh flows; not wired into the UI here)
+    //
+    //    Each note is enriched with apna.social.userMetadata(pubkey),
+    //    one call per unique author, fanned out in parallel and dropped
+    //    into the DOM as each one resolves.
+    const FeedState = {
+      limit: 10,
+      notes: [],                  // accumulated feed events (newest first)
+      metaCache: new Map(),       // pubkey -> metadata
+      loadingOlder: false,
+    };
 
-        // Fan out one metadata fetch per *unique* pubkey, in parallel.
-        const uniquePubkeys = [...new Set(events.map((e) => e.pubkey))];
-        await Promise.all(uniquePubkeys.map(async (pubkey) => {
-          let meta = {};
-          try {
-            meta = (await apna.social.userMetadata(pubkey)) || {};
-          } catch (_) { /* fall back to truncated pubkey below */ }
-          const name = meta.name || meta.display_name || (pubkey.slice(0, 10) + '…');
-          const pic = meta.picture;
-          // Apply this author's profile to every note they wrote in this batch.
-          events.forEach((e, i) => {
-            if (e.pubkey !== pubkey) return;
-            const av = $('av-' + i);
-            const au = $('au-' + i);
-            if (pic && av) {
-              av.outerHTML = '<img class="note-avatar" id="av-' + i +
-                '" src="' + esc(pic) + '" alt="" referrerpolicy="no-referrer" />';
-            }
-            if (au) au.textContent = name;
-          });
-        }));
+    const renderFeed = () => {
+      const list = FeedState.notes;
+      if (!list.length) {
+        setStatus($('feed'), 'No notes yet — try following a few people on Nostr.', 'ok');
+        $('loadOlder').style.display = 'none';
+        $('feedMeter').textContent = '';
+        return;
+      }
+      $('feed').className = '';
+      $('feed').innerHTML = list.map((e, i) => {
+        const when = new Date(e.created_at * 1000).toLocaleString();
+        const body = e.content.length > 220 ? e.content.slice(0, 220) + '…' : e.content;
+        const cached = FeedState.metaCache.get(e.pubkey);
+        const name = cached ? (cached.name || cached.display_name || (e.pubkey.slice(0, 10) + '…')) : null;
+        const pic = cached && cached.picture;
+        return '<div class="note" data-i="' + i + '">' +
+          '<div class="note-head">' +
+            (pic
+              ? '<img class="note-avatar" id="av-' + i + '" src="' + esc(pic) + '" alt="" referrerpolicy="no-referrer" />'
+              : '<div class="note-avatar" id="av-' + i + '"></div>') +
+            '<div>' +
+              '<div class="note-author" id="au-' + i + '">' +
+                (name ? esc(name) : '<span class="skeleton"></span>') +
+              '</div>' +
+              '<div class="meta">' + esc(when) + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="note-body">' + esc(body) + '</div>' +
+        '</div>';
+      }).join('');
+      $('loadOlder').style.display = 'block';
+      $('feedMeter').textContent =
+        'Showing ' + list.length + ' note' + (list.length === 1 ? '' : 's') +
+        ' · limit=' + FeedState.limit;
+    };
+
+    const hydrateAuthors = async () => {
+      const need = [...new Set(FeedState.notes.map((e) => e.pubkey))]
+        .filter((pk) => !FeedState.metaCache.has(pk));
+      await Promise.all(need.map(async (pubkey) => {
+        let meta = {};
+        try {
+          meta = (await apna.social.userMetadata(pubkey)) || {};
+        } catch (_) { /* fall back to truncated pubkey */ }
+        FeedState.metaCache.set(pubkey, meta);
+        const name = meta.name || meta.display_name || (pubkey.slice(0, 10) + '…');
+        const pic = meta.picture;
+        FeedState.notes.forEach((e, i) => {
+          if (e.pubkey !== pubkey) return;
+          const av = $('av-' + i);
+          const au = $('au-' + i);
+          if (pic && av) {
+            av.outerHTML = '<img class="note-avatar" id="av-' + i +
+              '" src="' + esc(pic) + '" alt="" referrerpolicy="no-referrer" />';
+          }
+          if (au) au.textContent = name;
+        });
+      }));
+    };
+
+    const loadFeed = async () => {
+      setStatus($('feed'), '<span class="spinner"></span>Fetching latest ' + FeedState.limit + ' notes…');
+      $('loadOlder').style.display = 'none';
+      $('feedMeter').textContent = '';
+      try {
+        const events = await apna.social.feed('FOLLOWING_FEED', { limit: FeedState.limit });
+        FeedState.notes = events;
+        renderFeed();
+        hydrateAuthors();
       } catch (err) {
         setStatus($('feed'), '⚠ ' + esc(err && err.message || err), 'err');
       }
-    })();
+    };
+
+    // Pagination — fetch older notes by passing the oldest visible
+    // timestamp as the "until" cursor. The host returns the next page,
+    // we de-dupe by id and append.
+    $('loadOlder').onclick = async () => {
+      if (FeedState.loadingOlder || !FeedState.notes.length) return;
+      FeedState.loadingOlder = true;
+      const btn = $('loadOlder');
+      btn.disabled = true;
+      btn.textContent = 'Loading older…';
+      const oldestTs = FeedState.notes[FeedState.notes.length - 1].created_at;
+      try {
+        const older = await apna.social.feed('FOLLOWING_FEED', {
+          until: oldestTs,
+          limit: FeedState.limit,
+        });
+        const seen = new Set(FeedState.notes.map((e) => e.id));
+        const unique = older.filter((e) => !seen.has(e.id));
+        if (!unique.length) {
+          btn.textContent = '— no older notes found —';
+        } else {
+          FeedState.notes = FeedState.notes.concat(unique)
+            .sort((a, b) => b.created_at - a.created_at);
+          renderFeed();
+          hydrateAuthors();
+        }
+      } catch (err) {
+        btn.textContent = '⚠ ' + (err && err.message || err);
+      } finally {
+        FeedState.loadingOlder = false;
+        btn.disabled = false;
+      }
+    };
+
+    // Limit pills — clicking a pill changes the limit and refetches.
+    document.querySelectorAll('[data-limit]').forEach((pill) => {
+      pill.onclick = () => {
+        FeedState.limit = Number(pill.dataset.limit);
+        document.querySelectorAll('[data-limit]').forEach((p) =>
+          p.classList.toggle('active', p === pill));
+        loadFeed();
+      };
+    });
+
+    loadFeed();
 
     // 4. Publish — one call. The host signs with the active user's key
     //    and fans the event out to every relay they've configured.
