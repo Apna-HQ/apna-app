@@ -11,11 +11,19 @@
 
 import { finalizeEvent } from 'nostr-tools/pure';
 import * as nip19 from 'nostr-tools/nip19';
+import type { Event as NostrEvent, EventTemplate } from 'nostr-tools';
 
+/**
+ * Free public Blossom servers, listed in fallback order:
+ *   - blossom.primal.net: tested-good free uploads for HTML / arbitrary bytes.
+ *   - blossom.band:       free for accounts on the allow-list; content-sniffs
+ *                         uploads and rejects MIME mismatches.
+ * (Paid servers like cdn.satellite.earth are excluded here — they return 401
+ * "Permission denied" without pre-purchased credits.)
+ */
 export const DEFAULT_BLOSSOM_SERVERS = [
   'https://blossom.primal.net',
   'https://blossom.band',
-  'https://cdn.satellite.earth',
 ];
 
 export interface BlossomDescriptor {
@@ -26,13 +34,26 @@ export interface BlossomDescriptor {
   uploaded?: number;
 }
 
+/**
+ * Caller-supplied signer for the Kind-24242 auth event. Returning a signed
+ * event (with id/pubkey/sig populated) lets the upload work with any signer —
+ * local nsec, NIP-07 extension, or NIP-46 remote bunker — without this module
+ * needing to know which one is in use.
+ */
+export type Sign24242 = (template: EventTemplate) => Promise<NostrEvent>;
+
 export interface UploadOptions {
   /** Preferred server origin without trailing slash. When set we'll try this
    *  first and then fall through to DEFAULT_BLOSSOM_SERVERS — some servers
    *  apply policy filters (size, quota, MIME) that a different server may not. */
   server?: string;
-  /** Bech32 nsec used to sign the Kind-24242 auth event. */
-  nsec: string;
+  /** Signer for the Kind-24242 auth event. Either this OR `nsec` is required. */
+  signEvent?: Sign24242;
+  /** Bech32 nsec for local-key signing. Convenience for callers that have an
+   *  nsec in hand; if both are provided `signEvent` wins. Empty / non-nsec
+   *  strings are treated as "no nsec available" so the caller can pass
+   *  keypair.nsec without checking the signer type. */
+  nsec?: string;
   /** The bytes to upload (typically a UTF-8 encoded HTML/JS string). */
   data: Uint8Array | string;
   /** Optional MIME hint forwarded in the PUT Content-Type header. */
@@ -94,42 +115,45 @@ const sanitiseDescription = (raw: string | undefined): string => {
   return trimmed.length >= 8 ? trimmed : 'apna mini-app source upload';
 };
 
-function decodeNsec(nsec: string): Uint8Array {
+/**
+ * Wrap a bech32 `nsec1...` into a Sign24242 callback. Used as a convenience
+ * for callers that have a local secret key in hand; remote signers should
+ * pass an explicit `signEvent`.
+ */
+function nsecSigner(nsec: string): Sign24242 {
   const decoded = nip19.decode(nsec);
   if (decoded.type !== 'nsec') {
-    throw new Error('Blossom upload requires an `nsec` secret key.');
+    throw new Error('Blossom upload: nsec is not a valid bech32 secret key.');
   }
-  return decoded.data as Uint8Array;
+  const sk = decoded.data as Uint8Array;
+  return async (template) => finalizeEvent(template, sk);
 }
 
 /**
- * Build & sign the Kind-24242 "upload" authorisation event.
- * The Blossom server checks the `x` tag matches the body's SHA-256.
+ * Build & sign the Kind-24242 "upload" authorisation event using the
+ * caller-supplied signer. The Blossom server checks the `x` tag matches the
+ * body's SHA-256.
  */
 async function buildUploadAuth(opts: {
   sha256: string;
-  nsec: string;
+  signEvent: Sign24242;
   description: string;
   expirySeconds: number;
   server: string;
 }): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const expiration = now + opts.expirySeconds;
-  const sk = decodeNsec(opts.nsec);
-  const event = finalizeEvent(
-    {
-      kind: 24242,
-      created_at: now,
-      tags: [
-        ['t', 'upload'],
-        ['x', opts.sha256],
-        ['expiration', String(expiration)],
-        ['server', opts.server],
-      ],
-      content: opts.description,
-    },
-    sk
-  );
+  const event = await opts.signEvent({
+    kind: 24242,
+    created_at: now,
+    tags: [
+      ['t', 'upload'],
+      ['x', opts.sha256],
+      ['expiration', String(expiration)],
+      ['server', opts.server],
+    ],
+    content: opts.description,
+  });
   return base64Encode(JSON.stringify(event));
 }
 
@@ -144,6 +168,23 @@ async function buildUploadAuth(opts: {
  * can't block the user when another server would happily accept the same blob.
  */
 export async function blossomUpload(opts: UploadOptions): Promise<BlossomDescriptor> {
+  // Resolve which signer to use. Explicit signEvent wins; otherwise fall back
+  // to a bech32 nsec if the caller provided one. An empty / non-nsec string
+  // (the shape `getKeyPairFromLocalStorage()` returns for remote-signer
+  // profiles) intentionally does NOT wrap into a signer — the caller is
+  // expected to provide `signEvent` for those cases. Surfacing a clear error
+  // here beats the cryptic "Wrong string length" thrown by bech32 decode.
+  let signEvent: Sign24242 | undefined = opts.signEvent;
+  if (!signEvent && opts.nsec && opts.nsec.startsWith('nsec1')) {
+    signEvent = nsecSigner(opts.nsec);
+  }
+  if (!signEvent) {
+    throw new Error(
+      'Blossom upload needs a signer. Provide `signEvent` (works for any signer ' +
+      'type) or pass a bech32 `nsec1…` secret key.'
+    );
+  }
+
   const bytes = toBytes(opts.data);
   const sha256 = await sha256Hex(bytes);
   const description = sanitiseDescription(opts.description);
@@ -167,7 +208,7 @@ export async function blossomUpload(opts: UploadOptions): Promise<BlossomDescrip
     try {
       const auth = await buildUploadAuth({
         sha256,
-        nsec: opts.nsec,
+        signEvent,
         description,
         expirySeconds,
         server: trimmed,

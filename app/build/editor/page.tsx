@@ -45,6 +45,7 @@ import {
 import BottomNav from "@/components/organisms/BottomNav";
 import CodeEditor from "@/components/molecules/CodeEditor";
 import { ReplyToNote } from "@/lib/nostr";
+import { signOnly } from "@/lib/nostr/events";
 import { blossomUpload, DEFAULT_BLOSSOM_SERVERS } from "@/lib/blossom";
 import { getKeyPairFromLocalStorage } from "@/lib/utils";
 import { APPS_ROOT_NOTE_ID } from "@/lib/constants";
@@ -666,14 +667,25 @@ export default function EditorPage() {
       let blossomDescriptor: { url: string; sha256: string } | null = null;
 
       if (hostingChoice === "blossom") {
-        // 1) Upload to Blossom first.
+        // 1) Upload to Blossom first. We delegate signing of the Kind-24242
+        //    auth event to the host's `signOnly()` so the upload works for any
+        //    profile type — local nsec, NIP-07 extension, or NIP-46 remote
+        //    bunker. Remote-signer profiles intentionally don't store an nsec
+        //    locally, so passing `keyPair.nsec` directly would only work for
+        //    local profiles.
         setPublishStep(`Uploading source to ${blossomServer}…`);
+        const signingSource =
+          keyPair.signerType === "nip07"
+            ? "nip07"
+            : keyPair.signerType === "nip46"
+              ? keyPair.npub
+              : keyPair.nsec;
         const descriptor = await blossomUpload({
           server: blossomServer,
-          nsec: keyPair.nsec,
+          signEvent: async (template) => signOnly(signingSource, template),
           data: source,
           contentType: "text/html",
-          description: `${draftName} — apna mini-app`,
+          description: `${draftName} mini-app source for Apna`,
         });
         blossomDescriptor = { url: descriptor.url, sha256: descriptor.sha256 };
         hostingTag = "blossom";
