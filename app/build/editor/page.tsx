@@ -45,6 +45,7 @@ import {
 import BottomNav from "@/components/organisms/BottomNav";
 import CodeEditor from "@/components/molecules/CodeEditor";
 import { ReplyToNote } from "@/lib/nostr";
+import { blossomUpload, DEFAULT_BLOSSOM_SERVERS } from "@/lib/blossom";
 import { getKeyPairFromLocalStorage } from "@/lib/utils";
 import { APPS_ROOT_NOTE_ID } from "@/lib/constants";
 import { APP_CATEGORIES, AppCategory } from "@/lib/types/apps";
@@ -479,6 +480,19 @@ export default function EditorPage() {
   const [publishError, setPublishError] = useState<string | null>(null);
   const [selectedCategories, setSelectedCategories] = useState<AppCategory[]>([]);
   const [publishDescription, setPublishDescription] = useState("");
+  // Hosting strategy chosen at publish time.
+  //  - 'auto'    : inline if ≤ 48 KiB, else fall back to a Kind-1 content event
+  //  - 'blossom' : always upload the source to a Blossom server (BUD-01) and
+  //                reference it from the metadata note via { blossomUrl, sha256 }
+  const [hostingChoice, setHostingChoice] = useState<"auto" | "blossom">("auto");
+  const [blossomServer, setBlossomServer] = useState<string>(DEFAULT_BLOSSOM_SERVERS[0]);
+  const [publishStep, setPublishStep] = useState<string | null>(null);
+  const [lastPublish, setLastPublish] = useState<{
+    metadataId: string;
+    hosting: "nostr-inline" | "nostr-content-event" | "blossom";
+    blossomUrl?: string;
+    sha256?: string;
+  } | null>(null);
 
   // Persist draft to IndexedDB on source change (debounced)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -620,7 +634,10 @@ export default function EditorPage() {
     }
   };
 
-  // Publish (hosting: 'nostr')
+  // Publish: routes the source through one of three strategies and posts the
+  // metadata note to APPS_ROOT_NOTE_ID. Strategy is decided by `hostingChoice`:
+  //   - 'auto'    -> inline (≤ 48 KiB) or Kind-1 content event (> 48 KiB)
+  //   - 'blossom' -> always upload to a Blossom server, reference by URL + hash
   const handlePublish = async () => {
     const keyPair = getKeyPairFromLocalStorage();
     if (!keyPair) {
@@ -639,41 +656,66 @@ export default function EditorPage() {
 
     setPublishStatus("submitting");
     setPublishError(null);
+    setPublishStep(null);
+    setLastPublish(null);
 
     try {
       const sourceBytes = new TextEncoder().encode(source).length;
-
       let submitData: Record<string, unknown>;
+      let hostingTag: "nostr-inline" | "nostr-content-event" | "blossom";
+      let blossomDescriptor: { url: string; sha256: string } | null = null;
 
-      if (sourceBytes <= INLINE_SIZE_LIMIT) {
+      if (hostingChoice === "blossom") {
+        // 1) Upload to Blossom first.
+        setPublishStep(`Uploading source to ${blossomServer}…`);
+        const descriptor = await blossomUpload({
+          server: blossomServer,
+          nsec: keyPair.nsec,
+          data: source,
+          contentType: "text/html",
+          description: `${draftName} — apna mini-app`,
+        });
+        blossomDescriptor = { url: descriptor.url, sha256: descriptor.sha256 };
+        hostingTag = "blossom";
+
+        submitData = {
+          appName: draftName,
+          hosting: "blossom",
+          isGeneratedApp: true, // back-compat alias for old loaders
+          blossomUrl: descriptor.url,
+          sha256: descriptor.sha256,
+          categories: selectedCategories,
+          mode: "Full-page",
+          description: publishDescription,
+        };
+      } else if (sourceBytes <= INLINE_SIZE_LIMIT) {
         // Inline the source in the metadata note.
+        hostingTag = "nostr-inline";
         submitData = {
           appName: draftName,
           htmlContent: source,
           hosting: "nostr",
-          isGeneratedApp: true, // back-compat for old loaders
+          isGeneratedApp: true,
           categories: selectedCategories,
           mode: "Full-page",
           description: publishDescription,
         };
       } else {
-        // Source is too large to inline — publish it as a separate Kind-1 event
-        // and reference it via contentEventId.
-        //
-        // We publish the raw source as a plain text Kind-1 note, then reference
-        // its id in the metadata note.  The loader in fetchAppList.ts will fetch
-        // the content event and use its `.content` field as the HTML source.
+        // Too large to inline — publish raw source as its own Kind-1 event and
+        // reference it via contentEventId. fetchAppList.ts then fetches that
+        // event and uses its `.content` as the HTML source.
+        setPublishStep("Publishing source as a Nostr content event…");
         const contentEvent = await ReplyToNote(
           APPS_ROOT_NOTE_ID,
           source,
           keyPair.nsec
         );
         if (!contentEvent?.id) throw new Error("Failed to publish content event.");
-
+        hostingTag = "nostr-content-event";
         submitData = {
           appName: draftName,
           hosting: "nostr",
-          isGeneratedApp: true, // back-compat
+          isGeneratedApp: true,
           contentEventId: contentEvent.id,
           categories: selectedCategories,
           mode: "Full-page",
@@ -681,6 +723,7 @@ export default function EditorPage() {
         };
       }
 
+      setPublishStep("Signing & broadcasting metadata note…");
       const response = await ReplyToNote(
         APPS_ROOT_NOTE_ID,
         JSON.stringify(submitData),
@@ -701,8 +744,16 @@ export default function EditorPage() {
         }
       }
 
+      setLastPublish({
+        metadataId: response?.id ?? "",
+        hosting: hostingTag,
+        blossomUrl: blossomDescriptor?.url,
+        sha256: blossomDescriptor?.sha256,
+      });
+      setPublishStep(null);
       setPublishStatus("success");
     } catch (err) {
+      setPublishStep(null);
       setPublishError(err instanceof Error ? err.message : "Unknown error");
       setPublishStatus("error");
     }
@@ -950,17 +1001,50 @@ export default function EditorPage() {
 
             <div className="p-4 space-y-5">
               {publishStatus === "success" ? (
-                <div className="text-center py-6">
-                  <p className="text-[#368564] font-semibold text-lg mb-2">Published!</p>
+                <div className="text-center py-6 space-y-3">
+                  <p className="text-[#368564] font-semibold text-lg">Published!</p>
                   <p className="text-gray-500 text-sm">
-                    Your app is live on Nostr and will appear in{" "}
+                    Your app is live and will appear in{" "}
                     <Link href="/explore" className="underline text-[#368564]">
                       Explore
                     </Link>{" "}
                     shortly.
                   </p>
+                  {lastPublish && (
+                    <div className="mx-auto max-w-sm rounded-lg border border-gray-100 bg-gray-50 p-3 text-left text-xs text-gray-600 space-y-1">
+                      <div>
+                        <span className="font-medium text-gray-500">hosting:</span>{" "}
+                        <code className="text-[#368564]">{lastPublish.hosting}</code>
+                      </div>
+                      {lastPublish.blossomUrl && (
+                        <div className="truncate">
+                          <span className="font-medium text-gray-500">blob:</span>{" "}
+                          <a
+                            href={lastPublish.blossomUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[#368564] underline"
+                          >
+                            {lastPublish.blossomUrl}
+                          </a>
+                        </div>
+                      )}
+                      {lastPublish.sha256 && (
+                        <div className="truncate">
+                          <span className="font-medium text-gray-500">sha256:</span>{" "}
+                          <code className="text-gray-700">{lastPublish.sha256.slice(0, 24)}…</code>
+                        </div>
+                      )}
+                      {lastPublish.metadataId && (
+                        <div className="truncate">
+                          <span className="font-medium text-gray-500">note id:</span>{" "}
+                          <code className="text-gray-700">{lastPublish.metadataId.slice(0, 24)}…</code>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <Button
-                    className="mt-4 bg-[#368564] hover:bg-[#2a6b4f] text-white"
+                    className="bg-[#368564] hover:bg-[#2a6b4f] text-white"
                     onClick={() => setIsPublishOpen(false)}
                   >
                     Done
@@ -1014,14 +1098,85 @@ export default function EditorPage() {
                     </div>
                   </div>
 
-                  {/* Info box about hosting */}
-                  <div className="p-3 bg-[#e6efe9] rounded-lg text-xs text-[#368564]">
-                    <strong>hosting: &apos;nostr&apos;</strong> — the full source is stored on
-                    Nostr relays.{" "}
-                    {new TextEncoder().encode(source).length > INLINE_SIZE_LIMIT
-                      ? "Your source exceeds 48 KiB and will be published via a referenced content event."
-                      : "Your source is small enough to inline in the metadata note."}
+                  {/* Hosting strategy */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Hosting</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setHostingChoice("auto")}
+                        className={`rounded-lg border p-3 text-left text-xs transition-colors ${
+                          hostingChoice === "auto"
+                            ? "border-[#368564] bg-[#e6efe9] text-[#1f3a2a]"
+                            : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+                        }`}
+                      >
+                        <div className="font-semibold text-sm">Nostr (auto)</div>
+                        <div className="mt-1 text-[11px] leading-snug opacity-80">
+                          Inline if ≤ 48 KiB, otherwise a referenced Kind-1 content event.
+                        </div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setHostingChoice("blossom")}
+                        className={`rounded-lg border p-3 text-left text-xs transition-colors ${
+                          hostingChoice === "blossom"
+                            ? "border-[#368564] bg-[#e6efe9] text-[#1f3a2a]"
+                            : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+                        }`}
+                      >
+                        <div className="font-semibold text-sm">Blossom 🌸</div>
+                        <div className="mt-1 text-[11px] leading-snug opacity-80">
+                          Content-addressed blob storage. Bigger apps, hash-verified.
+                        </div>
+                      </button>
+                    </div>
+
+                    {hostingChoice === "blossom" && (
+                      <div className="space-y-1 pt-1">
+                        <label className="text-xs font-medium text-gray-500">Blossom server</label>
+                        <select
+                          className="w-full rounded-md border p-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#368564]"
+                          value={blossomServer}
+                          onChange={(e) => setBlossomServer(e.target.value)}
+                        >
+                          {DEFAULT_BLOSSOM_SERVERS.map((s) => (
+                            <option key={s} value={s}>
+                              {s.replace(/^https?:\/\//, "")}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    <div className="p-3 bg-[#e6efe9] rounded-lg text-xs text-[#368564]">
+                      {hostingChoice === "blossom" ? (
+                        <>
+                          The source will be uploaded to{" "}
+                          <strong>{blossomServer.replace(/^https?:\/\//, "")}</strong>{" "}
+                          and referenced by{" "}
+                          <code className="bg-white/60 px-1 rounded">blossomUrl</code> +{" "}
+                          <code className="bg-white/60 px-1 rounded">sha256</code> in the metadata note.
+                          The loader verifies the hash on every fetch.
+                        </>
+                      ) : (
+                        <>
+                          <strong>hosting: &apos;nostr&apos;</strong> — full source stored on
+                          Nostr relays.{" "}
+                          {new TextEncoder().encode(source).length > INLINE_SIZE_LIMIT
+                            ? "Source exceeds 48 KiB and will be published via a referenced content event."
+                            : "Source fits inline in the metadata note."}
+                        </>
+                      )}
+                    </div>
                   </div>
+
+                  {publishStep && (
+                    <p className="flex items-center gap-2 text-xs text-gray-600">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      {publishStep}
+                    </p>
+                  )}
 
                   {publishError && (
                     <p className="text-sm text-red-500">{publishError}</p>

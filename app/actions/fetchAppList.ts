@@ -23,6 +23,12 @@ interface AppDetailsJSON {
      * this explicit field for clarity.
      */
     contentEventId?: string;
+    /**
+     * Blossom URL of the source blob (BUD-01). Content-addressed by `sha256`,
+     * which we verify before treating the response as authoritative.
+     */
+    blossomUrl?: string;
+    sha256?: string;
     categories: AppCategory[];
     mode: "Full-page";
     description: string;
@@ -33,25 +39,31 @@ async function parseAppDetailsFromJSON(text: string): Promise<AppDetailsJSON | n
         const json = JSON.parse(text);
         if (json && typeof json === 'object') {
             // Accept events that carry a URL, inline HTML, a content-event reference,
-            // or the legacy isGeneratedApp flag.
+            // a Blossom URL, or the legacy isGeneratedApp flag.
             const hasUrl = 'appURL' in json && typeof json.appURL === 'string' && json.appURL !== '';
             const hasHtml = 'htmlContent' in json && typeof json.htmlContent === 'string' && json.htmlContent !== '';
             const hasContentRef = 'contentEventId' in json && typeof json.contentEventId === 'string' && json.contentEventId !== '';
+            const hasBlossom = 'blossomUrl' in json && typeof json.blossomUrl === 'string' && json.blossomUrl !== '';
             const legacyGenerated = json.isGeneratedApp === true;
 
-            if (hasUrl || hasHtml || hasContentRef || legacyGenerated) {
+            if (hasUrl || hasHtml || hasContentRef || hasBlossom || legacyGenerated) {
                 const hosting = deriveHosting({
                     hosting: json.hosting,
                     isGeneratedApp: json.isGeneratedApp,
                     appURL: json.appURL,
+                    blossomUrl: json.blossomUrl,
                 });
                 return {
                     appURL: json.appURL,
                     appName: json.appName,
                     htmlContent: json.htmlContent,
                     hosting,
-                    isGeneratedApp: hosting === 'nostr', // keep back-compat alias in sync
+                    // back-compat alias: a nostr-hosted *or* blossom-hosted app both
+                    // count as "generated" for legacy loaders that only know that flag.
+                    isGeneratedApp: hosting === 'nostr' || hosting === 'blossom',
                     contentEventId: json.contentEventId,
+                    blossomUrl: json.blossomUrl,
+                    sha256: typeof json.sha256 === 'string' ? json.sha256 : undefined,
                     categories: Array.isArray(json.categories)
                         ? json.categories.filter((cat: string) => APP_CATEGORIES.includes(cat as AppCategory))
                         : ["Miscellaneous"],
@@ -78,6 +90,30 @@ async function loadContentFromEvent(contentEventId: string): Promise<string | nu
             return event.content;
         }
         return null;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Fetch a Blossom-hosted source blob and verify its sha256.  Content-addressed
+ * storage means a hash mismatch is a tampered (or wrong) blob — treat as null
+ * so the entry is filtered out of the app list rather than rendering attacker
+ * HTML in a sandboxed iframe.
+ */
+async function loadContentFromBlossom(url: string, expectedSha256?: string): Promise<string | null> {
+    try {
+        const res = await fetch(url);
+        if (!res.ok) return null;
+        const buf = await res.arrayBuffer();
+        if (expectedSha256) {
+            const digest = await crypto.subtle.digest('SHA-256', new Uint8Array(buf));
+            const hex = Array.from(new Uint8Array(digest))
+                .map(b => b.toString(16).padStart(2, '0'))
+                .join('');
+            if (hex !== expectedSha256) return null;
+        }
+        return new TextDecoder().decode(buf);
     } catch {
         return null;
     }
@@ -135,6 +171,21 @@ export async function fetchAppListAction(revalidate = false): Promise<AppDetails
                             }
                         }
 
+                        // Blossom-hosted: fetch the URL and verify the sha256 if present.
+                        if (
+                            appDetails.hosting === 'blossom' &&
+                            !appDetails.htmlContent &&
+                            appDetails.blossomUrl
+                        ) {
+                            const source = await loadContentFromBlossom(
+                                appDetails.blossomUrl,
+                                appDetails.sha256,
+                            );
+                            if (source) {
+                                appDetails.htmlContent = source;
+                            }
+                        }
+
                         return {
                             ...replyEvent,
                             ...appDetails
@@ -150,7 +201,10 @@ export async function fetchAppListAction(revalidate = false): Promise<AppDetails
                     // URL-hosted app validation
                     (event.hosting === 'url' && typeof event.appURL === 'string' && event.appURL !== '') ||
                     // Nostr-hosted app validation (legacy isGeneratedApp falls here too)
-                    (event.hosting === 'nostr' && typeof event.htmlContent === 'string' && event.htmlContent !== '')
+                    (event.hosting === 'nostr' && typeof event.htmlContent === 'string' && event.htmlContent !== '') ||
+                    // Blossom-hosted: the blob fetch above populates htmlContent; reject
+                    // entries whose blob failed to load or hash-mismatched.
+                    (event.hosting === 'blossom' && typeof event.htmlContent === 'string' && event.htmlContent !== '')
                 )
             );
 
@@ -176,6 +230,19 @@ export async function fetchAppListAction(revalidate = false): Promise<AppDetails
                                 if (source) updateDetails.htmlContent = source;
                             }
 
+                            // Same lift for Blossom-hosted updates.
+                            if (
+                                updateDetails.hosting === 'blossom' &&
+                                !updateDetails.htmlContent &&
+                                updateDetails.blossomUrl
+                            ) {
+                                const source = await loadContentFromBlossom(
+                                    updateDetails.blossomUrl,
+                                    updateDetails.sha256,
+                                );
+                                if (source) updateDetails.htmlContent = source;
+                            }
+
                             // Validate required fields based on hosting type
                             if (
                                 !updateDetails.appName ||
@@ -183,7 +250,9 @@ export async function fetchAppListAction(revalidate = false): Promise<AppDetails
                                     // URL-hosted app validation
                                     (updateDetails.hosting === 'url' && (!updateDetails.appURL || updateDetails.appURL === '')) ||
                                     // Nostr-hosted app validation
-                                    (updateDetails.hosting === 'nostr' && (!updateDetails.htmlContent || updateDetails.htmlContent === ''))
+                                    (updateDetails.hosting === 'nostr' && (!updateDetails.htmlContent || updateDetails.htmlContent === '')) ||
+                                    // Blossom-hosted: must have resolved content
+                                    (updateDetails.hosting === 'blossom' && (!updateDetails.htmlContent || updateDetails.htmlContent === ''))
                                 )
                             ) return null;
 
@@ -250,8 +319,10 @@ export async function fetchAppListAction(revalidate = false): Promise<AppDetails
                     appName: event.appName,
                     htmlContent: event.htmlContent,
                     hosting: event.hosting,
-                    isGeneratedApp: event.hosting === 'nostr', // back-compat alias
+                    isGeneratedApp: event.hosting === 'nostr' || event.hosting === 'blossom', // back-compat alias
                     contentEventId: event.contentEventId,
+                    blossomUrl: event.blossomUrl,
+                    sha256: event.sha256,
                     id: originalEvent?.id || event.id, // Keep original note ID for reactions
                     pubkey: event.pubkey,
                     reactions,
