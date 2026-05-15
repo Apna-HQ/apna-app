@@ -130,8 +130,29 @@ export async function signOnly(
 
 export const publishEvent = async (nsecOrNpub: string, event: any) => {
     const signedEvent = await signOnly(nsecOrNpub, event)
-    const pub = await pool.publish(DEFAULT_RELAYS, signedEvent)
-    console.log(`published event - `, pub)
+    // `pool.publish` returns one promise per relay. The previous version of
+    // this function never awaited them — it logged `[Promise, Promise, …]`
+    // and returned, declaring success even when every relay rejected the
+    // event (common for fresh pubkeys with no NIP-42 auth, oversized
+    // payloads, banned content, etc.). That's how published apps could
+    // vanish: they were never on the wire to begin with.
+    const pubs = pool.publish(DEFAULT_RELAYS, signedEvent)
+    const settled = await Promise.allSettled(pubs)
+    const accepted: string[] = []
+    const rejected: { relay: string; reason: string }[] = []
+    settled.forEach((r, i) => {
+        const relay = DEFAULT_RELAYS[i]
+        if (r.status === 'fulfilled') accepted.push(relay)
+        else rejected.push({ relay, reason: r.reason instanceof Error ? r.reason.message : String(r.reason) })
+    })
+    console.log(
+        `published event ${signedEvent.id.slice(0,8)} → ${accepted.length}/${DEFAULT_RELAYS.length} relays`,
+        rejected.length > 0 ? rejected : ''
+    )
+    if (accepted.length === 0) {
+        const reasons = rejected.map((r) => `${r.relay}: ${r.reason}`).join(' | ')
+        throw new Error(`No relay accepted the event — ${reasons}`)
+    }
     return signedEvent
 }
 
