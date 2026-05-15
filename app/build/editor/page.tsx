@@ -46,6 +46,7 @@ import BottomNav from "@/components/organisms/BottomNav";
 import CodeEditor from "@/components/molecules/CodeEditor";
 import { ReplyToRootNote } from "@/lib/nostr";
 import { signOnly } from "@/lib/nostr/events";
+import { revalidateTags } from "@/app/actions/feedback";
 import { blossomUpload, DEFAULT_BLOSSOM_SERVERS } from "@/lib/blossom";
 import { getKeyPairFromLocalStorage } from "@/lib/utils";
 import { APPS_ROOT_NOTE_ID } from "@/lib/constants";
@@ -764,6 +765,16 @@ export default function EditorPage() {
         blossomUrl: blossomDescriptor?.url,
         sha256: blossomDescriptor?.sha256,
       });
+
+      // Invalidate the cached app list so /explore shows the new entry
+      // on its next render instead of waiting up to 5 min for the
+      // unstable_cache TTL.
+      try {
+        await revalidateTags(["ApnaMiniAppDetails", APPS_ROOT_NOTE_ID]);
+      } catch {
+        // Non-critical — cache will still refresh eventually.
+      }
+
       setPublishStep(null);
       setPublishStatus("success");
     } catch (err) {
