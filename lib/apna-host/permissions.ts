@@ -35,6 +35,7 @@ export class PermissionGate {
   readonly appId: string;
   readonly appName?: string;
 
+  private readonly pendingChecks = new Map<string, Promise<PermissionDecision>>();
   private readonly prompt: PermissionPromptHandler;
 
   constructor(options: PermissionGateOptions) {
@@ -51,19 +52,30 @@ export class PermissionGate {
       return standing.decision;
     }
 
-    const [decision] = await this.prompt({
+    const pending = this.pendingChecks.get(capability);
+    if (pending) return pending;
+
+    const work = this.prompt({
       appId: this.appId,
       appName: this.appName,
       capabilities: [capability],
-    });
-    if (!decision || decision.capability !== capability) {
-      return 'deny';
-    }
+    })
+      .then(([decision]) => {
+        if (!decision || decision.capability !== capability) {
+          return 'deny';
+        }
 
-    if (decision.scope !== 'once') {
-      recordPermission(this.appId, decision);
-    }
-    return decision.decision;
+        if (decision.scope !== 'once') {
+          recordPermission(this.appId, decision);
+        }
+        return decision.decision;
+      })
+      .finally(() => {
+        this.pendingChecks.delete(capability);
+      });
+
+    this.pendingChecks.set(capability, work);
+    return work;
   }
 
   async request(capabilities: string[]): Promise<Permission[]> {

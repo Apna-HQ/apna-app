@@ -35,10 +35,6 @@ import {
 } from "@/lib/apna-host/instance-manager";
 import { apnaHostCapabilities } from "@/lib/apna-host/capabilities";
 import PermissionPrompt from "@/components/organisms/PermissionPrompt";
-import type {
-  PermissionPromptRequest,
-  PermissionPromptResult,
-} from "@/lib/apna-host/permissions";
 import { ChatMessage, GeneratedApp } from "@/lib/generatedAppsDB";
 import PromptIterationSheet from "@/components/molecules/PromptIterationSheet";
 import { useGeneratedApps } from "@/lib/contexts/GeneratedAppsContext";
@@ -48,6 +44,7 @@ import {
   getDesignSelections,
   subscribeToDesignSelections,
 } from "@/lib/apna-host/design-selections";
+import { usePermissionPromptQueue } from "@/lib/apna-host/use-permission-prompt-queue";
 
 export interface MiniAppModalProps {
   isOpen: boolean;
@@ -91,12 +88,14 @@ export default function MiniAppModal({
     hosting ?? (isGeneratedApp ? "nostr" : htmlContent ? "nostr" : "url");
 
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
-  const permissionResolverRef = useRef<
-    ((permissions: PermissionPromptResult) => void) | null
-  >(null);
   const [miniAppInstance, setMiniAppInstance] = useState<MiniAppInstance>();
-  const [permissionRequest, setPermissionRequest] =
-    useState<PermissionPromptRequest | null>(null);
+  const {
+    activePermissionRequest,
+    permissionPrompt,
+    resolveActivePermissionPrompt,
+    cancelActivePermissionPrompt,
+    clearPermissionPrompts,
+  } = usePermissionPromptQueue();
   const [isFullscreen, setIsFullscreen] = useState(true);
 
   // Iteration sheet state (only used when showIteration===true)
@@ -133,11 +132,7 @@ export default function MiniAppModal({
       iframe: iframeEl,
       handlers: apnaHostCapabilities,
       designRemote,
-      permissionPrompt: (request) =>
-        new Promise((resolve) => {
-          permissionResolverRef.current = resolve;
-          setPermissionRequest(request);
-        }),
+      permissionPrompt,
     });
     setMiniAppInstance(instance);
 
@@ -158,13 +153,21 @@ export default function MiniAppModal({
       clearTimeout(sendInitialSelections);
       unsubscribeSelections();
       instance.dispose();
+      clearPermissionPrompts();
       setMiniAppInstance(undefined);
       if (typeof document !== "undefined") {
         document.body.style.pointerEvents = "";
         document.body.style.overflow = "";
       }
     };
-  }, [appId, appName, isOpen, iframeEl]);
+  }, [
+    appId,
+    appName,
+    clearPermissionPrompts,
+    iframeEl,
+    isOpen,
+    permissionPrompt,
+  ]);
 
   const handleRegenerateContent = async (newMessage: string) => {
     if (!newMessage.trim()) return;
@@ -300,28 +303,14 @@ export default function MiniAppModal({
         </div>
       </DialogContent>
 
-      {permissionRequest && (
+      {activePermissionRequest && (
         <PermissionPrompt
-          open={!!permissionRequest}
-          appId={permissionRequest.appId}
-          appName={permissionRequest.appName}
-          capabilities={permissionRequest.capabilities}
-          onResolve={(permissions) => {
-            permissionResolverRef.current?.(permissions);
-            permissionResolverRef.current = null;
-            setPermissionRequest(null);
-          }}
-          onCancel={() => {
-            permissionResolverRef.current?.(
-              permissionRequest.capabilities.map((capability) => ({
-                capability,
-                decision: "deny",
-                scope: "once",
-              }))
-            );
-            permissionResolverRef.current = null;
-            setPermissionRequest(null);
-          }}
+          open={!!activePermissionRequest}
+          appId={activePermissionRequest.appId}
+          appName={activePermissionRequest.appName}
+          capabilities={activePermissionRequest.capabilities}
+          onResolve={resolveActivePermissionPrompt}
+          onCancel={cancelActivePermissionPrompt}
         />
       )}
     </Dialog>

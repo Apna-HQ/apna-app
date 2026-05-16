@@ -163,6 +163,35 @@ describe('always scope', () => {
     assert.equal(promptCallCount(), 1, 'prompt must not be called again for always scope');
   });
 
+  test('concurrent checks for the same capability share a single prompt', async () => {
+    const appId = uniqueAppId();
+    let calls = 0;
+    let resolvePrompt: (() => void) | undefined;
+    const gate = new PermissionGate({
+      appId,
+      appName: 'Test App',
+      prompt: async (req) => {
+        calls++;
+        return new Promise<Permission[]>((resolve) => {
+          resolvePrompt = () =>
+            resolve(
+              req.capabilities.map((capability) =>
+                perm(capability, 'allow', 'once')
+              )
+            );
+        });
+      },
+    });
+
+    const first = gate.check('identity.v1.me');
+    const second = gate.check('identity.v1.me');
+    await Promise.resolve();
+
+    assert.equal(calls, 1, 'only one prompt should be opened for duplicate concurrent checks');
+    resolvePrompt?.();
+    assert.deepEqual(await Promise.all([first, second]), ['allow', 'allow']);
+  });
+
   test('always decision is persisted to localStorage', async () => {
     const appId = uniqueAppId();
     const { gate } = makeGate(appId, 'allow', 'always');

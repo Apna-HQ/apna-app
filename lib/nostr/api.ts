@@ -5,6 +5,8 @@ import { normalizeNoteId, normalizePublicKey } from './utils'
 import { publishKind0, publishKind1, publishKind3, publishKind7, GenerateKeyPair } from './events'
 import * as crypto from 'crypto'
 
+const PROFILE_RELATION_LIMIT = 250
+
 export const InitialiseProfile = async (nsec: string) => {
     let nprofile = nip19.nprofileEncode({
         pubkey: getPublicKey(nip19.decode(nsec).data as Uint8Array),
@@ -158,17 +160,18 @@ const getFollowing = async (npub: string): Promise<string[]> => {
         kinds: [3],
         authors: [pubkey]
     }, true)
-    return following ? filterTagValues(following.tags, "p") : []
+    return following ? filterTagValues(following.tags, "p").slice(0, PROFILE_RELATION_LIMIT) : []
 }
 
 const getFollowers = async (npub: string): Promise<string[]> => {
     const pubkey = normalizePublicKey(npub)
     const filter: Filter = {
         kinds: [3],
-        "#p": [pubkey]
+        "#p": [pubkey],
+        limit: PROFILE_RELATION_LIMIT
     }
     const followers = await fetchEventsFromRelays(DEFAULT_RELAYS, filter)
-    return followers.map((e: any) => e.pubkey)
+    return Array.from(new Set(followers.map((e: any) => e.pubkey)))
 }
 
 export const GetNpubProfile = async (npub: string) => {

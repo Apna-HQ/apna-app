@@ -34,10 +34,7 @@ import { createInitialMessages } from "@/lib/utils/htmlTemplates";
 import { miniAppInstanceManager } from "@/lib/apna-host/instance-manager";
 import { apnaHostCapabilities } from "@/lib/apna-host/capabilities";
 import PermissionPrompt from "@/components/organisms/PermissionPrompt";
-import type {
-  PermissionPromptRequest,
-  PermissionPromptResult,
-} from "@/lib/apna-host/permissions";
+import { usePermissionPromptQueue } from "@/lib/apna-host/use-permission-prompt-queue";
 import {
   getDesignSelections,
   subscribeToDesignSelections,
@@ -498,13 +495,15 @@ export default function EditorPage() {
 
   // Persist draft to IndexedDB on source change (debounced)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const permissionResolverRef = useRef<
-    ((permissions: PermissionPromptResult) => void) | null
-  >(null);
   const [previewIframeEl, setPreviewIframeEl] =
     useState<HTMLIFrameElement | null>(null);
-  const [permissionRequest, setPermissionRequest] =
-    useState<PermissionPromptRequest | null>(null);
+  const {
+    activePermissionRequest,
+    permissionPrompt,
+    resolveActivePermissionPrompt,
+    cancelActivePermissionPrompt,
+    clearPermissionPrompts,
+  } = usePermissionPromptQueue();
 
   const attachPreviewIframe = useCallback((el: HTMLIFrameElement | null) => {
     setPreviewIframeEl(el);
@@ -524,11 +523,7 @@ export default function EditorPage() {
       iframe: previewIframeEl,
       handlers: apnaHostCapabilities,
       designRemote,
-      permissionPrompt: (request) =>
-        new Promise((resolve) => {
-          permissionResolverRef.current = resolve;
-          setPermissionRequest(request);
-        }),
+      permissionPrompt,
     });
 
     const sendInitialSelections = setTimeout(() => {
@@ -543,11 +538,16 @@ export default function EditorPage() {
       clearTimeout(sendInitialSelections);
       unsubscribeSelections();
       instance.dispose();
-      permissionResolverRef.current?.([]);
-      permissionResolverRef.current = null;
-      setPermissionRequest(null);
+      clearPermissionPrompts();
     };
-  }, [draftId, draftName, previewMode, previewIframeEl]);
+  }, [
+    clearPermissionPrompts,
+    draftId,
+    draftName,
+    permissionPrompt,
+    previewIframeEl,
+    previewMode,
+  ]);
 
   const saveDraft = useCallback(
     async (src: string, name: string, id: string | null) => {
@@ -910,28 +910,14 @@ export default function EditorPage() {
 
       <BottomNav />
 
-      {permissionRequest && (
+      {activePermissionRequest && (
         <PermissionPrompt
-          open={!!permissionRequest}
-          appId={permissionRequest.appId}
-          appName={permissionRequest.appName}
-          capabilities={permissionRequest.capabilities}
-          onResolve={(permissions) => {
-            permissionResolverRef.current?.(permissions);
-            permissionResolverRef.current = null;
-            setPermissionRequest(null);
-          }}
-          onCancel={() => {
-            permissionResolverRef.current?.(
-              permissionRequest.capabilities.map((capability) => ({
-                capability,
-                decision: "deny",
-                scope: "once",
-              }))
-            );
-            permissionResolverRef.current = null;
-            setPermissionRequest(null);
-          }}
+          open={!!activePermissionRequest}
+          appId={activePermissionRequest.appId}
+          appName={activePermissionRequest.appName}
+          capabilities={activePermissionRequest.capabilities}
+          onResolve={resolveActivePermissionPrompt}
+          onCancel={cancelActivePermissionPrompt}
         />
       )}
 
