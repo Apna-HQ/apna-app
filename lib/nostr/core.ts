@@ -114,3 +114,74 @@ export async function fetchEventsFromRelays(
     }
   })
 }
+
+/**
+ * Like `fetchAllFromRelay`, but with quorum-based early termination so a
+ * single slow / unreachable relay doesn't push wall time to the maxWait
+ * floor (~10s). Used by latency-sensitive read paths (e.g. `/explore`).
+ *
+ * Resolves when ANY of:
+ *   - all relays have sent EOSE
+ *   - `eoseQuorum` relays have sent EOSE AND `minWaitMs` has elapsed
+ *   - `maxWaitMs` elapses (hard cap)
+ */
+export async function fetchAllFromRelaysFast(
+  filter: Filter,
+  opts: { maxWaitMs?: number; minWaitMs?: number; eoseQuorum?: number; relays?: string[] } = {},
+): Promise<NostrEvent[]> {
+  const relayList = opts.relays && opts.relays.length > 0 ? opts.relays : DEFAULT_RELAYS
+  const maxWaitMs = opts.maxWaitMs ?? 1800
+  const minWaitMs = opts.minWaitMs ?? 250
+  // Default to single-relay EOSE quorum: in practice every relay query gets
+  // at least one healthy answer fast (damus + primal are reliable), and
+  // requiring more pays the latency of every slower member of the pool.
+  // Anything that arrives between quorum-EOSE and the quiet timer firing is
+  // still captured.
+  const eoseQuorum = Math.max(1, Math.min(opts.eoseQuorum ?? 1, relayList.length))
+  const key = queryKey(relayList, filter, false) + ':fast'
+
+  return dedupeInFlight(key, () => new Promise<NostrEvent[]>((resolve) => {
+    const events: NostrEvent[] = []
+    const seen = new Set<string>()
+    let eoseCount = 0
+    let lastEventAt = Date.now()
+    let settled = false
+    let quietTimer: ReturnType<typeof setTimeout> | null = null
+
+    const finish = () => {
+      if (settled) return
+      settled = true
+      if (quietTimer) clearTimeout(quietTimer)
+      try { sub.close() } catch { /* ignore */ }
+      resolve(events)
+    }
+
+    // Quorum reached → wait until the stream has been quiet for `minWaitMs`,
+    // i.e. no new event has landed. Catches the "EOSE came first, events
+    // still trickling" pattern without paying full maxWait.
+    const armQuietTimer = () => {
+      if (quietTimer) clearTimeout(quietTimer)
+      const wait = Math.max(0, minWaitMs - (Date.now() - lastEventAt))
+      quietTimer = setTimeout(finish, wait)
+    }
+
+    const sub = pool.subscribeMany(relayList, [filter], {
+      onevent(ev) {
+        if (!seen.has(ev.id)) {
+          seen.add(ev.id)
+          events.push(ev)
+          lastEventAt = Date.now()
+          // If we're already past quorum and a fresh event arrived, restart
+          // the quiet-timer so we don't truncate a slow batch.
+          if (eoseCount >= eoseQuorum) armQuietTimer()
+        }
+      },
+      oneose() {
+        eoseCount++
+        if (eoseCount >= relayList.length) return finish()
+        if (eoseCount === eoseQuorum) armQuietTimer()
+      },
+    })
+    setTimeout(finish, maxWaitMs)
+  })) as Promise<NostrEvent[]>
+}
