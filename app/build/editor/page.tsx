@@ -39,6 +39,7 @@ import {
   getDesignSelections,
   subscribeToDesignSelections,
 } from "@/lib/apna-host/design-selections";
+import { onIframeHandshake } from "@/lib/apna-host/iframe-handshake";
 import BottomNav from "@/components/organisms/BottomNav";
 import CodeEditor from "@/components/molecules/CodeEditor";
 import { ReplyToRootNote } from "@/lib/nostr";
@@ -517,7 +518,16 @@ export default function EditorPage() {
         ? `${window.location.origin}/_next/static/chunks/remoteEntry.js`
         : undefined;
 
-    const instance = miniAppInstanceManager.create({
+    let instance: ReturnType<typeof miniAppInstanceManager.create> | null = null;
+    let initialSelectionsTimer: ReturnType<typeof setTimeout> | null = null;
+    const stopHandshakeListener = onIframeHandshake(previewIframeEl, () => {
+      if (initialSelectionsTimer) clearTimeout(initialSelectionsTimer);
+      initialSelectionsTimer = setTimeout(() => {
+        instance?.emit("design:selections", getDesignSelections());
+      }, 250);
+    });
+
+    instance = miniAppInstanceManager.create({
       appId: draftId ?? "build-editor-preview",
       appName: draftName || "Build preview",
       iframe: previewIframeEl,
@@ -526,18 +536,15 @@ export default function EditorPage() {
       permissionPrompt,
     });
 
-    const sendInitialSelections = setTimeout(() => {
-      instance.emit("design:selections", getDesignSelections());
-    }, 500);
-
     const unsubscribeSelections = subscribeToDesignSelections((selections) => {
-      instance.emit("design:selections", selections);
+      instance?.emit("design:selections", selections);
     });
 
     return () => {
-      clearTimeout(sendInitialSelections);
+      stopHandshakeListener();
+      if (initialSelectionsTimer) clearTimeout(initialSelectionsTimer);
       unsubscribeSelections();
-      instance.dispose();
+      instance?.dispose();
       clearPermissionPrompts();
     };
   }, [

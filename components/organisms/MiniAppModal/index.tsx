@@ -45,6 +45,8 @@ import {
   subscribeToDesignSelections,
 } from "@/lib/apna-host/design-selections";
 import { usePermissionPromptQueue } from "@/lib/apna-host/use-permission-prompt-queue";
+import { onIframeHandshake } from "@/lib/apna-host/iframe-handshake";
+import type { PermissionPromptResult } from "@/lib/apna-host/permissions";
 
 export interface MiniAppModalProps {
   isOpen: boolean;
@@ -97,6 +99,7 @@ export default function MiniAppModal({
     clearPermissionPrompts,
   } = usePermissionPromptQueue();
   const [isFullscreen, setIsFullscreen] = useState(true);
+  const suppressDialogCloseUntilRef = useRef(0);
 
   // Iteration sheet state (only used when showIteration===true)
   const [isIterationSheetOpen, setIsIterationSheetOpen] = useState(false);
@@ -126,7 +129,17 @@ export default function MiniAppModal({
         ? `${window.location.origin}/_next/static/chunks/remoteEntry.js`
         : undefined;
 
-    const instance = miniAppInstanceManager.create({
+    let instance: MiniAppInstance | null = null;
+    let initialSelectionsTimer: ReturnType<typeof setTimeout> | null = null;
+    const initialSelections = getDesignSelections();
+    const stopHandshakeListener = onIframeHandshake(iframeEl, () => {
+      if (initialSelectionsTimer) clearTimeout(initialSelectionsTimer);
+      initialSelectionsTimer = setTimeout(() => {
+        instance?.emit("design:selections", initialSelections);
+      }, 250);
+    });
+
+    instance = miniAppInstanceManager.create({
       appId,
       appName: appName ?? "App",
       iframe: iframeEl,
@@ -136,23 +149,16 @@ export default function MiniAppModal({
     });
     setMiniAppInstance(instance);
 
-    // Send the current design-selections to the mini-app as its initial state.
-    // We use a small delay so the mini-app has time to complete the handshake
-    // and register its `apna.on('design:selections')` listener before we push.
-    const initialSelections = getDesignSelections();
-    const sendInitialSelections = setTimeout(() => {
-      instance.emit("design:selections", initialSelections);
-    }, 500);
-
     // Subscribe to future selection changes and re-emit to this instance.
     const unsubscribeSelections = subscribeToDesignSelections((selections) => {
-      instance.emit("design:selections", selections);
+      instance?.emit("design:selections", selections);
     });
 
     return () => {
-      clearTimeout(sendInitialSelections);
+      stopHandshakeListener();
+      if (initialSelectionsTimer) clearTimeout(initialSelectionsTimer);
       unsubscribeSelections();
-      instance.dispose();
+      instance?.dispose();
       clearPermissionPrompts();
       setMiniAppInstance(undefined);
       if (typeof document !== "undefined") {
@@ -220,8 +226,32 @@ export default function MiniAppModal({
     }
   };
 
+  const suppressDialogCloseBriefly = useCallback(() => {
+    suppressDialogCloseUntilRef.current = Date.now() + 1000;
+  }, []);
+
+  const handlePermissionResolve = useCallback(
+    (permissions: PermissionPromptResult) => {
+      suppressDialogCloseBriefly();
+      resolveActivePermissionPrompt(permissions);
+    },
+    [resolveActivePermissionPrompt, suppressDialogCloseBriefly]
+  );
+
+  const handlePermissionCancel = useCallback(() => {
+    suppressDialogCloseBriefly();
+    cancelActivePermissionPrompt();
+  }, [cancelActivePermissionPrompt, suppressDialogCloseBriefly]);
+
   const handleDialogOpenChange = (open: boolean) => {
     if (!open) {
+      if (
+        activePermissionRequest ||
+        Date.now() < suppressDialogCloseUntilRef.current
+      ) {
+        return;
+      }
+
       if (typeof window !== "undefined") {
         miniAppInstance?.dispose();
         document.body.style.pointerEvents = "";
@@ -236,72 +266,86 @@ export default function MiniAppModal({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleDialogOpenChange}>
-      <DialogContent variant="fullscreen" className="p-0 overflow-hidden">
-        <div className="flex flex-col h-full">
-          {!isFullscreen && (
-            <TopBar
-              appId={appId}
-              appName={appName ?? (effectiveHosting === "nostr" ? "Generated App" : "App")}
-              onClose={onClose}
-              showBackButton
-            />
-          )}
-          <div className="flex-1">
-            {isOpen && (
-              <iframe
-                ref={attachIframe}
-                id={effectiveHosting === "nostr" ? "generatedAppIframe" : "miniAppIframe"}
-                src={effectiveHosting === "url" && appUrl ? appUrl : undefined}
-                srcDoc={effectiveHosting === "nostr" && htmlContent ? htmlContent : undefined}
-                style={{
-                  overflow: "hidden",
-                  height: "100dvh",
-                  width: "100%",
-                  border: "none",
+    <>
+      <Dialog open={isOpen} onOpenChange={handleDialogOpenChange}>
+        <DialogContent
+          variant="fullscreen"
+          className="p-0 overflow-hidden"
+          onEscapeKeyDown={(event) => {
+            if (activePermissionRequest) event.preventDefault();
+          }}
+          onInteractOutside={(event) => {
+            if (activePermissionRequest) event.preventDefault();
+          }}
+          onPointerDownOutside={(event) => {
+            if (activePermissionRequest) event.preventDefault();
+          }}
+        >
+          <div className="flex flex-col h-full">
+            {!isFullscreen && (
+              <TopBar
+                appId={appId}
+                appName={appName ?? (effectiveHosting === "nostr" ? "Generated App" : "App")}
+                onClose={onClose}
+                showBackButton
+              />
+            )}
+            <div className="flex-1">
+              {isOpen && (
+                <iframe
+                  ref={attachIframe}
+                  id={effectiveHosting === "nostr" ? "generatedAppIframe" : "miniAppIframe"}
+                  src={effectiveHosting === "url" && appUrl ? appUrl : undefined}
+                  srcDoc={effectiveHosting === "nostr" && htmlContent ? htmlContent : undefined}
+                  style={{
+                    overflow: "hidden",
+                    height: "100dvh",
+                    width: "100%",
+                    border: "none",
+                  }}
+                  allow="camera"
+                  // nostr-hosted apps get the sandbox attribute (same as old GeneratedAppModal)
+                  sandbox={effectiveHosting === "nostr" ? "allow-scripts allow-same-origin allow-forms" : undefined}
+                />
+              )}
+
+              <Fab
+                isFullscreen={isFullscreen}
+                onToggleFullscreen={() => setIsFullscreen(!isFullscreen)}
+                appId={appId}
+                onRate={
+                  effectiveHosting === "url"
+                    ? () => {
+                        const iframe = iframeRef.current;
+                        if (iframe?.src) iframe.src = iframe.src;
+                      }
+                    : undefined
+                }
+                onToggleHighlight={() => {
+                  miniAppInstance?.emit("customise:toggleHighlight");
                 }}
-                allow="camera"
-                // nostr-hosted apps get the sandbox attribute (same as old GeneratedAppModal)
-                sandbox={effectiveHosting === "nostr" ? "allow-scripts allow-same-origin allow-forms" : undefined}
+                onProfileChange={() => {
+                  miniAppInstance?.emit("profile:switched");
+                }}
+                onClose={onClose}
+                isGeneratedApp={effectiveHosting === "nostr"}
+                onIterate={showIteration ? () => setIsIterationSheetOpen(true) : undefined}
               />
-            )}
 
-            <Fab
-              isFullscreen={isFullscreen}
-              onToggleFullscreen={() => setIsFullscreen(!isFullscreen)}
-              appId={appId}
-              onRate={
-                effectiveHosting === "url"
-                  ? () => {
-                      const iframe = iframeRef.current;
-                      if (iframe?.src) iframe.src = iframe.src;
-                    }
-                  : undefined
-              }
-              onToggleHighlight={() => {
-                miniAppInstance?.emit("customise:toggleHighlight");
-              }}
-              onProfileChange={() => {
-                miniAppInstance?.emit("profile:switched");
-              }}
-              onClose={onClose}
-              isGeneratedApp={effectiveHosting === "nostr"}
-              onIterate={showIteration ? () => setIsIterationSheetOpen(true) : undefined}
-            />
-
-            {/* Prompt iteration sheet — only rendered when showIteration is true */}
-            {showIteration && (
-              <PromptIterationSheet
-                isOpen={isIterationSheetOpen}
-                onClose={() => setIsIterationSheetOpen(false)}
-                messages={messages}
-                onSubmit={handleRegenerateContent}
-                isLoading={isRegenerating}
-              />
-            )}
+              {/* Prompt iteration sheet — only rendered when showIteration is true */}
+              {showIteration && (
+                <PromptIterationSheet
+                  isOpen={isIterationSheetOpen}
+                  onClose={() => setIsIterationSheetOpen(false)}
+                  messages={messages}
+                  onSubmit={handleRegenerateContent}
+                  isLoading={isRegenerating}
+                />
+              )}
+            </div>
           </div>
-        </div>
-      </DialogContent>
+        </DialogContent>
+      </Dialog>
 
       {activePermissionRequest && (
         <PermissionPrompt
@@ -309,10 +353,10 @@ export default function MiniAppModal({
           appId={activePermissionRequest.appId}
           appName={activePermissionRequest.appName}
           capabilities={activePermissionRequest.capabilities}
-          onResolve={resolveActivePermissionPrompt}
-          onCancel={cancelActivePermissionPrompt}
+          onResolve={handlePermissionResolve}
+          onCancel={handlePermissionCancel}
         />
       )}
-    </Dialog>
+    </>
   );
 }
