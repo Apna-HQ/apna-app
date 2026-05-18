@@ -28,6 +28,7 @@ export interface MiniAppTabFrameProps {
   appUrl?: string | null;
   htmlContent?: string | null;
   hosting?: "url" | "nostr";
+  isActive?: boolean;
   /**
    * Initial open mode for the mini-app frame. Defaults to `"tab"`.
    * Only seeds initial state — the user can still toggle fullscreen via the FAB.
@@ -45,6 +46,7 @@ export default function MiniAppTabFrame({
   appUrl,
   htmlContent,
   hosting,
+  isActive = true,
   defaultDisplay,
 }: MiniAppTabFrameProps) {
   const effectiveHosting: "url" | "nostr" =
@@ -165,6 +167,7 @@ export default function MiniAppTabFrame({
       />
 
       <DraggableMiniAppFab
+        isActive={isActive}
         onToggleHighlight={() =>
           miniAppInstance?.emit("customise:toggleHighlight")
         }
@@ -210,11 +213,13 @@ export default function MiniAppTabFrame({
  *   touch drag would also trigger the underlying button's onClick on release.
  */
 function DraggableMiniAppFab({
+  isActive,
   onToggleHighlight,
   onSwitchProfile,
   isFullscreen,
   onToggleFullscreen,
 }: {
+  isActive: boolean;
   onToggleHighlight: () => void;
   onSwitchProfile: () => void;
   isFullscreen: boolean;
@@ -232,6 +237,7 @@ function DraggableMiniAppFab({
     right: 0,
   });
   const [isOpen, setIsOpen] = useState(false);
+  const [menuSide, setMenuSide] = useState<"left" | "right">("left");
   const [hasPositioned, setHasPositioned] = useState(false);
   const draggingRef = useRef(false);
   const suppressClickUntilRef = useRef(0);
@@ -246,10 +252,12 @@ function DraggableMiniAppFab({
 
     const update = () => {
       const rect = parent.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+
       const width = rect.width;
       const height = rect.height;
-      const right = Math.max(0, width - FAB_SIZE - SAFE_INSET);
-      const bottom = Math.max(0, height - FAB_SIZE - SAFE_INSET);
+      const right = Math.max(SAFE_INSET, width - FAB_SIZE - SAFE_INSET);
+      const bottom = Math.max(SAFE_INSET, height - FAB_SIZE - SAFE_INSET);
       setConstraints({
         top: SAFE_INSET,
         bottom,
@@ -259,27 +267,39 @@ function DraggableMiniAppFab({
       if (!hasPositioned) {
         x.set(right);
         y.set(SAFE_INSET);
+        setMenuSide("left");
         setHasPositioned(true);
       } else {
         // Keep the FAB inside the visible area on resize.
         const currentX = x.get();
         const currentY = y.get();
-        if (currentX > right) x.set(right);
-        if (currentX < SAFE_INSET) x.set(SAFE_INSET);
+        let nextX = currentX;
+        if (currentX > right) {
+          x.set(right);
+          nextX = right;
+        }
+        if (currentX < SAFE_INSET) {
+          x.set(SAFE_INSET);
+          nextX = SAFE_INSET;
+        }
         if (currentY > bottom) y.set(bottom);
         if (currentY < SAFE_INSET) y.set(SAFE_INSET);
+        const midpoint = (SAFE_INSET + right) / 2;
+        setMenuSide(nextX < midpoint ? "right" : "left");
       }
     };
 
     update();
+    const frame = window.requestAnimationFrame(update);
     const ro = new ResizeObserver(update);
     ro.observe(parent);
     window.addEventListener("resize", update);
     return () => {
+      window.cancelAnimationFrame(frame);
       ro.disconnect();
       window.removeEventListener("resize", update);
     };
-  }, [hasPositioned, x, y]);
+  }, [hasPositioned, isActive, x, y]);
 
   // Click-outside collapses the expanded pill.
   useEffect(() => {
@@ -305,11 +325,9 @@ function DraggableMiniAppFab({
     const currentY = y.get();
     const midpoint = (constraints.left + constraints.right) / 2;
     // Snap to the nearest left/right edge with SAFE_INSET padding.
-    if (currentX < midpoint) {
-      x.set(constraints.left);
-    } else {
-      x.set(constraints.right);
-    }
+    const snappedX = currentX < midpoint ? constraints.left : constraints.right;
+    x.set(snappedX);
+    setMenuSide(snappedX < midpoint ? "right" : "left");
     // Keep Y in bounds.
     if (currentY < constraints.top) y.set(constraints.top);
     if (currentY > constraints.bottom) y.set(constraints.bottom);
@@ -321,7 +339,11 @@ function DraggableMiniAppFab({
     handler();
   };
 
-  const toggleOpen = guardClick(() => setIsOpen((prev) => !prev));
+  const toggleOpen = guardClick(() => {
+    const midpoint = (constraints.left + constraints.right) / 2;
+    setMenuSide(x.get() < midpoint ? "right" : "left");
+    setIsOpen((prev) => !prev);
+  });
 
   return (
     <motion.div
@@ -346,7 +368,10 @@ function DraggableMiniAppFab({
         // at (0,0) before snapping to the top-right resting position.
         visibility: hasPositioned ? "visible" : "hidden",
       }}
-      className="z-20 flex items-center gap-1"
+      className={cn(
+        "z-20 flex items-center gap-1",
+        menuSide === "left" && "flex-row-reverse"
+      )}
     >
       <button
         type="button"
@@ -365,12 +390,12 @@ function DraggableMiniAppFab({
         {isOpen && (
           <motion.div
             key="pill"
-            initial={{ opacity: 0, scale: 0.85, x: -8 }}
+            initial={{ opacity: 0, scale: 0.85, x: menuSide === "left" ? 8 : -8 }}
             animate={{ opacity: 1, scale: 1, x: 0 }}
-            exit={{ opacity: 0, scale: 0.85, x: -8 }}
+            exit={{ opacity: 0, scale: 0.85, x: menuSide === "left" ? 8 : -8 }}
             transition={{ duration: 0.15, ease: "easeOut" }}
             className="flex items-center gap-1 rounded-full border border-ink/10 bg-chrome/95 p-1 text-ink-2 shadow-[0_8px_24px_rgba(40,30,20,0.12)] backdrop-blur dark:shadow-[0_8px_24px_rgba(0,0,0,0.4)]"
-            style={{ transformOrigin: "left center" }}
+            style={{ transformOrigin: menuSide === "left" ? "right center" : "left center" }}
           >
             <Button
               type="button"

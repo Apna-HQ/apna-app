@@ -7,7 +7,7 @@ export default function HomeLauncherComponent() {
 
     if (loading) {
         return (
-            <div className="flex min-h-screen items-center justify-center bg-shell">
+            <div className="flex min-h-[calc(100dvh-3rem)] items-center justify-center bg-shell">
                 <p className="text-ink-3">Initializing profile...</p>
             </div>
         );
@@ -15,15 +15,15 @@ export default function HomeLauncherComponent() {
 
     if (error) {
         return (
-            <div className="flex min-h-screen items-center justify-center bg-shell">
+            <div className="flex min-h-[calc(100dvh-3rem)] items-center justify-center bg-shell">
                 <p className="text-danger">Failed to initialize profile: {error}</p>
             </div>
         );
     }
 
     return (
-        <div className="min-h-[100dvh] overflow-x-hidden bg-shell text-ink">
-            <div className="mx-auto w-full max-w-5xl px-4 py-6 pb-24 md:px-8">
+        <div className="min-h-[calc(100dvh-3rem)] overflow-x-hidden bg-shell text-ink">
+            <div className="mx-auto w-full max-w-5xl px-4 py-6 pb-8 md:px-8">
                 <header className="mb-6 border-b border-ink/10 pb-5">
                     <p className="font-mono text-[11px] uppercase tracking-[0.08em] text-ink-3">
                         Store

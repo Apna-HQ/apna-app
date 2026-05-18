@@ -40,7 +40,6 @@ import {
   subscribeToDesignSelections,
 } from "@/lib/apna-host/design-selections";
 import { onIframeHandshake } from "@/lib/apna-host/iframe-handshake";
-import BottomNav from "@/components/organisms/BottomNav";
 import CodeEditor from "@/components/molecules/CodeEditor";
 import { ReplyToRootNote } from "@/lib/nostr";
 import { signOnly } from "@/lib/nostr/events";
@@ -804,7 +803,7 @@ export default function EditorPage() {
 
   return (
     <>
-      <div className="min-h-[100dvh] bg-shell flex flex-col pb-16 text-ink">
+      <div className="h-[calc(100dvh-3rem)] bg-shell flex flex-col text-ink">
         {/* ---- Header ---- */}
         <header className="border-b border-ink/10 bg-chrome px-4 py-3 flex items-center gap-3">
           <Link
@@ -919,8 +918,6 @@ export default function EditorPage() {
           </span>
         </footer>
       </div>
-
-      <BottomNav />
 
       {activePermissionRequest && (
         <PermissionPrompt

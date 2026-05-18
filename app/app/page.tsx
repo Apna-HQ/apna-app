@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -79,6 +80,7 @@ type WorkspaceTab = {
   appId: string;
   name: string;
   glyph: string;
+  iconUrl?: string;
   tone: "amber" | "orange" | "green" | "blue" | "violet" | "plain";
   kind: "home" | "mini-app";
   hosting?: "url" | "nostr";
@@ -96,6 +98,7 @@ type CatalogApp = {
   appUrl?: string;
   htmlContent?: string;
   glyph: string;
+  iconUrl?: string;
   tone: WorkspaceTab["tone"];
   description?: string;
   published?: boolean;
@@ -190,6 +193,7 @@ function AppHomeContent() {
         appId: app.id,
         name: app.name,
         glyph: app.glyph,
+        iconUrl: app.iconUrl,
         tone: app.tone,
         kind: "mini-app",
         hosting,
@@ -378,6 +382,7 @@ function AppHomeContent() {
                 onOpenSettings={() => setSettingsOpen(true)}
                 onOpenBuilder={() => router.push("/build/editor")}
                 onOpenStore={() => router.push("/explore")}
+                onGenerateApp={handleGenerateApp}
                 onIterateGenerated={handleIterateGeneratedApp}
                 onRenameGenerated={setGeneratedAppToRename}
                 onDeleteGenerated={setGeneratedAppToDelete}
@@ -400,6 +405,7 @@ function AppHomeContent() {
                   htmlContent={tab.htmlContent}
                   hosting={tab.hosting}
                   defaultDisplay={tab.defaultDisplay}
+                  isActive={activeTabId === tab.id}
                 />
               </div>
             ))}
@@ -417,8 +423,6 @@ function AppHomeContent() {
           </footer>
         </section>
       </div>
-
-      <GenerateAppFab onGenerateApp={handleGenerateApp} />
 
       <GeneratedAppModal
         isOpen={!!generatedApp}
@@ -631,7 +635,7 @@ function TabStrip({
                 : "border-transparent text-ink-3 hover:bg-surface-2"
             )}
           >
-            <AppGlyph glyph={tab.glyph} tone={tab.tone} size="sm" />
+            <AppGlyph glyph={tab.glyph} iconUrl={tab.iconUrl} tone={tab.tone} size="sm" />
             <span className="min-w-0 flex-1 truncate font-medium">{tab.name}</span>
             <span
               role="button"
@@ -688,6 +692,7 @@ function LauncherWorkspace({
   onOpenSettings,
   onOpenBuilder,
   onOpenStore,
+  onGenerateApp,
   onIterateGenerated,
   onRenameGenerated,
   onDeleteGenerated,
@@ -703,6 +708,7 @@ function LauncherWorkspace({
   onOpenSettings: () => void;
   onOpenBuilder: () => void;
   onOpenStore: () => void;
+  onGenerateApp: (htmlContent: string, appId: string, messages: ChatMessage[], appName: string) => void;
   onIterateGenerated: (app: CatalogApp) => void;
   onRenameGenerated: (app: CatalogApp) => void;
   onDeleteGenerated: (app: CatalogApp) => void;
@@ -782,7 +788,7 @@ function LauncherWorkspace({
             {query ? `No apps match "${query}".` : "No apps yet. Visit the store to install one."}
           </div>
         ) : (
-          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 sm:gap-3 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-6">
+          <div className="grid grid-cols-4 gap-x-3 gap-y-4 sm:grid-cols-4 sm:gap-3 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-6">
             {installed.map((app) => (
               <AppTile
                 key={`${app.source}-${app.id}`}
@@ -798,13 +804,13 @@ function LauncherWorkspace({
               <button
                 type="button"
                 onClick={onOpenStore}
-                className="flex min-h-[104px] flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-ink/15 bg-transparent p-2 text-center text-ink-3 transition-colors hover:bg-surface/60"
+                className="flex min-h-[74px] flex-col items-center justify-start gap-1 rounded-lg p-1 text-center text-ink-3 transition-colors hover:bg-surface/60 sm:min-h-[104px] sm:justify-center sm:border sm:border-dashed sm:border-ink/15 sm:p-2"
               >
-                <span className="grid h-10 w-10 place-items-center rounded-lg bg-chrome">
+                <span className="grid h-11 w-11 place-items-center rounded-xl border border-dashed border-ink/15 bg-chrome sm:h-10 sm:w-10 sm:rounded-lg">
                   <Plus className="h-4 w-4" />
                 </span>
-                <span className="text-xs font-medium">Add app</span>
-                <span className="font-mono text-[10px]">from store</span>
+                <span className="line-clamp-2 text-[11px] font-medium leading-tight sm:text-xs">Add app</span>
+                <span className="hidden font-mono text-[10px] sm:block">from store</span>
               </button>
             )}
           </div>
@@ -822,7 +828,7 @@ function LauncherWorkspace({
                     onClick={() => onActivateTab(tab.id)}
                     className="flex items-center gap-3 rounded-lg border border-ink/10 bg-surface p-3 text-left transition-colors hover:border-ink/20"
                   >
-                    <AppGlyph glyph={tab.glyph} tone={tab.tone} />
+                    <AppGlyph glyph={tab.glyph} iconUrl={tab.iconUrl} tone={tab.tone} />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold text-ink">{tab.name}</p>
                       <p className="truncate font-mono text-[11px] text-ink-3">
@@ -841,8 +847,20 @@ function LauncherWorkspace({
           </section>
 
           <section>
-            <SectionLabel>Quick Actions</SectionLabel>
+            <SectionLabel>Quick Links</SectionLabel>
             <div className="grid grid-cols-2 gap-3">
+              <GenerateAppFab
+                onGenerateApp={onGenerateApp}
+                trigger={({ open, disabled }) => (
+                  <QuickAction
+                    icon={Sparkles}
+                    title="Generate app"
+                    sub="AI mini-app"
+                    onClick={open}
+                    disabled={disabled}
+                  />
+                )}
+              />
               <QuickAction icon={LockKeyhole} title="Review grants" sub="per mini-app" onClick={onOpenSettings} />
               <QuickAction icon={Code2} title="Build app" sub="editor + AI" onClick={onOpenBuilder} />
               <QuickAction icon={Store} title="Browse store" sub="apps + widgets" onClick={onOpenStore} />
@@ -885,24 +903,24 @@ function AppTile({
   const isGenerated = app.source === "generated";
 
   return (
-    <div className="rounded-lg border border-ink/10 bg-surface p-2 transition hover:-translate-y-0.5 hover:border-ink/20 hover:shadow-[0_6px_18px_rgba(40,30,20,0.06)] dark:hover:shadow-[0_6px_18px_rgba(0,0,0,0.35)]">
+    <div className="group min-w-0 sm:rounded-lg sm:border sm:border-ink/10 sm:bg-surface sm:p-2 sm:transition sm:hover:-translate-y-0.5 sm:hover:border-ink/20 sm:hover:shadow-[0_6px_18px_rgba(40,30,20,0.06)] sm:dark:hover:shadow-[0_6px_18px_rgba(0,0,0,0.35)]">
       <button
         type="button"
         disabled={!canOpen}
         onClick={() => onOpen(app)}
-        className="flex min-h-[96px] w-full flex-col items-center justify-center gap-1.5 text-center disabled:cursor-not-allowed disabled:opacity-60"
+        className="flex min-h-[74px] w-full flex-col items-center justify-start gap-1 text-center disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-[96px] sm:justify-center sm:gap-1.5"
       >
-        <AppGlyph glyph={app.glyph} tone={app.tone} size="md" />
-        <span className="line-clamp-1 text-xs font-semibold leading-tight text-ink sm:text-sm">
+        <AppGlyph glyph={app.glyph} iconUrl={app.iconUrl} tone={app.tone} size="launcher" />
+        <span className="line-clamp-2 max-w-full text-[11px] font-semibold leading-tight text-ink sm:line-clamp-1 sm:text-sm">
           {app.name}
         </span>
-        <span className="line-clamp-1 font-mono text-[10px] text-ink-3 sm:text-[11px]">
+        <span className="hidden font-mono text-[10px] text-ink-3 sm:line-clamp-1 sm:block sm:text-[11px]">
           {app.hint}
         </span>
       </button>
 
       {isGenerated && (
-        <div className="mt-1.5 grid grid-cols-2 gap-1 border-t border-ink/10 pt-1.5">
+        <div className="mt-1.5 hidden grid-cols-2 gap-1 border-t border-ink/10 pt-1.5 sm:grid">
           <TileAction icon={Repeat} label="Iterate" onClick={() => onIterateGenerated(app)} />
           <TileAction icon={Pencil} label="Rename" onClick={() => onRenameGenerated(app)} />
           {!app.published && (
@@ -963,17 +981,20 @@ function QuickAction({
   title,
   sub,
   onClick,
+  disabled,
 }: {
   icon: typeof Zap;
   title: string;
   sub: string;
   onClick?: () => void;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex items-center gap-3 rounded-lg border border-ink/10 bg-surface p-3 text-left hover:bg-chrome"
+      disabled={disabled}
+      className="flex items-center gap-3 rounded-lg border border-ink/10 bg-surface p-3 text-left hover:bg-chrome disabled:cursor-wait disabled:opacity-60"
     >
       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-amber-soft text-amber-strong">
         <Icon className="h-4 w-4" />
@@ -1055,7 +1076,7 @@ function ActiveAppsWidget({
               onClick={() => onActivateTab(tab.id)}
               className="flex w-full items-center gap-2 rounded-md px-1 py-1.5 text-left hover:bg-shell"
             >
-              <AppGlyph glyph={tab.glyph} tone={tab.tone} size="sm" />
+              <AppGlyph glyph={tab.glyph} iconUrl={tab.iconUrl} tone={tab.tone} size="sm" />
               <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
                 {tab.name}
               </span>
@@ -1156,7 +1177,7 @@ function TabSwitcherSheet({
                   onClick={() => onActivateTab(tab.id)}
                   className="flex min-w-0 flex-1 items-center gap-3 text-left"
                 >
-                  <AppGlyph glyph={tab.glyph} tone={tab.tone} />
+                  <AppGlyph glyph={tab.glyph} iconUrl={tab.iconUrl} tone={tab.tone} />
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-ink">{tab.name}</p>
                     <p className="truncate font-mono text-[11px] text-ink-3">
@@ -1343,13 +1364,17 @@ function WidgetRow({
 
 function AppGlyph({
   glyph,
+  iconUrl,
   tone,
   size = "md",
 }: {
   glyph: string;
+  iconUrl?: string;
   tone: WorkspaceTab["tone"];
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "launcher";
 }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const iconSrc = iconUrl && !imageFailed ? iconUrl : null;
   const toneClasses = {
     amber: "bg-[#f2d89d] text-[#6f4610] dark:bg-[#5c3d12] dark:text-[#f2d89d]",
     orange: "bg-[#f1c19e] text-[#743b16] dark:bg-[#5b2f10] dark:text-[#f1c19e]",
@@ -1362,16 +1387,32 @@ function AppGlyph({
     sm: "h-5 w-5 rounded text-[11px]",
     md: "h-10 w-10 rounded-lg text-lg",
     lg: "h-14 w-14 rounded-xl text-2xl",
+    launcher: "h-11 w-11 rounded-xl text-lg sm:h-10 sm:w-10 sm:rounded-lg",
   };
   return (
     <span
       className={cn(
         "grid shrink-0 place-items-center font-semibold",
-        toneClasses[tone],
+        iconSrc
+          ? "overflow-hidden border border-ink/10 bg-chrome p-1"
+          : toneClasses[tone],
         sizeClasses[size]
       )}
     >
-      {glyph.slice(0, 1).toUpperCase()}
+      {iconSrc ? (
+        <Image
+          src={iconSrc}
+          alt=""
+          width={48}
+          height={48}
+          className="h-full w-full object-contain"
+          unoptimized
+          loading="lazy"
+          onError={() => setImageFailed(true)}
+        />
+      ) : (
+        glyph.slice(0, 1).toUpperCase()
+      )}
     </span>
   );
 }
@@ -1414,6 +1455,7 @@ function buildCatalogApps(
       hosting: "url" as const,
       appUrl: app.appURL,
       glyph: details?.glyph ?? app.appName.charAt(0),
+      iconUrl: faviconUrlForAppUrl(app.appURL),
       tone: details?.tone ?? "blue",
       description: details?.description,
       defaultDisplay: app.defaultDisplay ?? "tab",
@@ -1441,6 +1483,7 @@ function appDetailsToCatalog(app: AppDetails): CatalogApp {
     appUrl: app.appURL,
     htmlContent: app.htmlContent,
     glyph: app.appName.charAt(0),
+    iconUrl: faviconUrlForAppUrl(app.appURL),
     tone: toneForName(app.appName),
     description: app.description,
     defaultDisplay: app.defaultDisplay ?? "tab",
@@ -1480,6 +1523,7 @@ function launchPayloadToCatalog(app: ShellLaunchPayload): CatalogApp {
     appUrl: app.appURL,
     htmlContent: app.htmlContent,
     glyph: app.appName.charAt(0),
+    iconUrl: faviconUrlForAppUrl(app.appURL),
     tone: toneForName(app.appName),
     description: app.description,
     defaultDisplay: app.defaultDisplay ?? "tab",
@@ -1489,6 +1533,11 @@ function launchPayloadToCatalog(app: ShellLaunchPayload): CatalogApp {
 function shortKey(value: string) {
   if (value.length <= 18) return value;
   return `${value.slice(0, 10)}...${value.slice(-6)}`;
+}
+
+function faviconUrlForAppUrl(appUrl?: string) {
+  if (!appUrl) return undefined;
+  return `/api/favicon?appUrl=${encodeURIComponent(appUrl)}`;
 }
 
 function toneForName(name: string): WorkspaceTab["tone"] {

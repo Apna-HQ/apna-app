@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,9 +19,15 @@ import { callOpenRouterApi } from "@/lib/utils/openRouterApi";
 
 interface GenerateAppFabProps {
   onGenerateApp: (htmlContent: string, appId: string, messages: ChatMessage[], appName: string) => void;
+  trigger?: (options: {
+    open: () => void;
+    disabled: boolean;
+    isLoaded: boolean;
+    hasApiKey: boolean;
+  }) => ReactNode;
 }
 
-export default function GenerateAppFab({ onGenerateApp }: GenerateAppFabProps) {
+export default function GenerateAppFab({ onGenerateApp, trigger }: GenerateAppFabProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [appName, setAppName] = useState("Generated App");
@@ -30,6 +36,8 @@ export default function GenerateAppFab({ onGenerateApp }: GenerateAppFabProps) {
   const { createApp, refreshApps } = useGeneratedApps();
   const { apiKey, isLoaded } = useOpenRouteApiKey();
   const router = useRouter();
+  const hasApiKey = Boolean(apiKey);
+  const openDialog = () => setIsOpen(true);
 
   const handleSubmit = async () => {
     if (!prompt.trim()) {
@@ -86,15 +94,22 @@ export default function GenerateAppFab({ onGenerateApp }: GenerateAppFabProps) {
 
   return (
     <>
-      {isLoaded && apiKey && (
+      {trigger ? (
+        trigger({
+          open: openDialog,
+          disabled: !isLoaded || isLoading,
+          isLoaded,
+          hasApiKey,
+        })
+      ) : isLoaded && apiKey ? (
         <Button
-          onClick={() => setIsOpen(true)}
+          onClick={openDialog}
           className="fixed bottom-20 right-4 z-50 h-14 w-14 rounded-full bg-amber-strong shadow-lg hover:bg-amber-strong/90"
           size="icon"
         >
           <Plus className="h-6 w-6 text-white" />
         </Button>
-      )}
+      ) : null}
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="border-ink/10 bg-chrome text-ink sm:max-w-md">

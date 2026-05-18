@@ -14,8 +14,9 @@ export const metadata: Metadata = {
   description: 'Reference host for Apna apps!',
   icons: {
     icon: [
-      { url: '/apna-favicon.svg', type: 'image/svg+xml' },
+      { url: '/apna-logo.svg', type: 'image/svg+xml' },
     ],
+    shortcut: ['/apna-logo.svg'],
   },
 }
 

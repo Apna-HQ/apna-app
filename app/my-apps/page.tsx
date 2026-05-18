@@ -6,7 +6,6 @@ import EditApp from "@/components/organisms/EditApp"
 import { useApps } from "@/lib/hooks/useApps"
 import { useProfile } from "@/lib/hooks/useProfile"
 import { getKeyPairFromLocalStorage } from "@/lib/utils"
-import BottomNav from "@/components/organisms/BottomNav"
 import { Button } from "@/components/ui/button"
 import { nip19 } from 'nostr-tools'
 import type { AppDetails } from "@/lib/types/apps"
@@ -68,7 +67,7 @@ export default function MyAppsPage() {
 
   return (
     <>
-      <div className="min-h-[calc(100dvh-3rem)] bg-shell px-4 py-6 pb-20 text-ink md:px-8">
+      <div className="min-h-[calc(100dvh-3rem)] bg-shell px-4 py-6 pb-8 text-ink md:px-8">
         <div className="mx-auto max-w-5xl">
           <header className="mb-6 border-b border-ink/10 pb-5">
             <p className="font-mono text-[11px] uppercase tracking-[0.08em] text-ink-3">
@@ -105,7 +104,6 @@ export default function MyAppsPage() {
           }}
         />
       )}
-      <BottomNav />
     </>
   )
 }

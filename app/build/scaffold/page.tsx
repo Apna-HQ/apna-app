@@ -61,7 +61,7 @@ export default function ScaffoldPage() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-shell pb-20 text-ink">
+    <div className="min-h-[calc(100dvh-3rem)] bg-shell pb-8 text-ink">
       <div className="max-w-2xl mx-auto px-4 py-8">
         {/* Back link */}
         <Link

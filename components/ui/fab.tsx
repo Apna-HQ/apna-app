@@ -61,6 +61,7 @@ export function Fab({
   const [hoveredRating, setHoveredRating] = useState(0)
   const [feedback, setFeedback] = useState('')
   const [isOpen, setIsOpen] = useState(false)
+  const [menuSide, setMenuSide] = useState<'left' | 'right'>('left')
   const [isProfileManagerOpen, setIsProfileManagerOpen] = useState(false)
   const [keyPair, setKeyPair] = useState<{ npub: string; nsec: string } | null>(null)
 
@@ -89,16 +90,18 @@ export function Fab({
         // Start at top right
         x.set(window.innerWidth - FAB_SIZE - 16)
         y.set(64)
+        setMenuSide('left')
       }
     }
 
     updateConstraints()
     updatePosition()
-    window.addEventListener('resize', () => {
+    const handleResize = () => {
       updateConstraints()
       updatePosition()
-    })
-    return () => window.removeEventListener('resize', updateConstraints)
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
   }, [x, y])
 
   const onDragEnd = () => {
@@ -110,8 +113,10 @@ export function Fab({
       // Snap to nearest side with 16px padding
       if (currentX < windowWidth / 2) {
         x.set(16) // Snap to left with padding
+        setMenuSide('right')
       } else {
         x.set(windowWidth - FAB_SIZE - 16) // Snap to right with padding
+        setMenuSide('left')
       }
 
       // Ensure y position stays within bounds
@@ -173,11 +178,11 @@ export function Fab({
             />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent 
-          align="end" 
+        <DropdownMenuContent
+          side={menuSide}
+          align="center"
           className="z-[100]"
           sideOffset={8}
-          alignOffset={-8}
         >
           {appId && (
             <Dialog open={isOpen} onOpenChange={setIsOpen}>
