@@ -1,16 +1,18 @@
 'use client'
 import React from 'react'
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { AppCard } from '@/components/molecules/AppCard'
 import { useApps, APP_CATEGORIES } from '@/lib/hooks/useApps'
-import MiniAppModal from '../MiniAppModal'
+import { deriveHosting } from '@/lib/types/apps'
+import { writeShellLaunchPayload } from '@/lib/apna-launch-cache'
 import { Button } from '@/components/ui/button'
-import type { AppDetails } from '@/lib/hooks/useApps'
 
 export default function AppLauncherList() {
-  const [selectedApp, setSelectedApp] = useState<AppDetails | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<string>("popular")
   const { apps, loading, error, refetch } = useApps();
+  const router = useRouter();
 
   // Listen for drawer close events to refresh the list
   useEffect(() => {
@@ -24,15 +26,47 @@ export default function AppLauncherList() {
     return () => window.removeEventListener('storage', handleStorageChange);
   }, [refetch]);
 
+  // Route launch through the new `/app` workspace shell rather than the
+  // legacy MiniAppModal. The workspace mounts based on the URL params —
+  // see `app/app/page.tsx`'s deep-link `useEffect`.
   const handleAppSelect = (appURL: string | null, appId: string, isGeneratedApp?: boolean) => {
     const app = apps.find(a => a.id === appId);
-    if (app) {
-      setSelectedApp(app)
-    }
-  }
+    const hosting = app
+      ? deriveHosting({
+          hosting: app.hosting,
+          isGeneratedApp: app.isGeneratedApp,
+          appURL: app.appURL,
+          blossomUrl: app.blossomUrl,
+        })
+      : (isGeneratedApp ? 'nostr' : 'url');
 
-  const handleClose = () => {
-    setSelectedApp(null)
+    if (app) {
+      writeShellLaunchPayload({
+        id: app.id,
+        appName: app.appName,
+        appURL: app.appURL,
+        htmlContent: app.htmlContent,
+        hosting: app.hosting,
+        isGeneratedApp: app.isGeneratedApp,
+        blossomUrl: app.blossomUrl,
+        sha256: app.sha256,
+        categories: app.categories,
+        description: app.description,
+        defaultDisplay: app.defaultDisplay,
+      });
+    }
+
+    const params = new URLSearchParams();
+    params.set('appId', appId);
+    if (hosting === 'nostr' || hosting === 'blossom') {
+      params.set('isGenerated', 'true');
+    } else {
+      params.set('isGenerated', 'false');
+      const url = appURL ?? app?.appURL ?? '';
+      if (url) params.set('appUrl', url);
+    }
+    if (app?.defaultDisplay) params.set('defaultDisplay', app.defaultDisplay);
+    router.push(`/app?${params.toString()}`);
   }
 
   const filteredApps = apps.filter(app => {
@@ -44,19 +78,19 @@ export default function AppLauncherList() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center py-8">
-        <p className="text-gray-600">Loading apps...</p>
+      <div className="flex items-center justify-center rounded-lg border border-ink/10 bg-surface py-8">
+        <p className="text-ink-3">Loading apps...</p>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="flex flex-col items-center py-8">
-        <p className="text-red-600">Failed to load apps</p>
+      <div className="flex flex-col items-center rounded-lg border border-danger/25 bg-surface py-8">
+        <p className="text-danger">Failed to load apps</p>
         <Button 
           onClick={() => refetch(true)}
-          className="mt-4 px-4 py-2 bg-[#368564] text-white rounded-md hover:bg-[#2a6b4f]"
+          className="mt-4 rounded-md bg-amber-strong px-4 py-2 text-white hover:bg-amber-strong/90"
         >
           Retry
         </Button>
@@ -66,16 +100,15 @@ export default function AppLauncherList() {
 
   return (
     <>
-      <div className="max-w-3xl mx-auto w-full">
-        {/* Category Tabs */}
+      <div className="mx-auto w-full">
         <div className="mb-6 overflow-x-auto">
-          <div className="flex space-x-2 min-w-max pb-2">
+          <div className="flex min-w-max space-x-2 pb-2">
             <button
               onClick={() => setSelectedCategory("popular")}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors
                 ${selectedCategory === "popular"
-                  ? "bg-[#368564] text-white"
-                  : "bg-[#e6efe9] text-[#368564] hover:bg-[#d1e4d9]"
+                  ? "bg-amber-strong text-white"
+                  : "border border-ink/10 bg-surface text-ink-2 hover:bg-surface-2"
                 }`}
             >
               Most Popular
@@ -86,8 +119,8 @@ export default function AppLauncherList() {
                 onClick={() => setSelectedCategory(category)}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors
                   ${selectedCategory === category
-                    ? "bg-[#368564] text-white"
-                    : "bg-[#e6efe9] text-[#368564] hover:bg-[#d1e4d9]"
+                    ? "bg-amber-strong text-white"
+                    : "border border-ink/10 bg-surface text-ink-2 hover:bg-surface-2"
                   }`}
               >
                 {category}
@@ -96,35 +129,25 @@ export default function AppLauncherList() {
           </div>
         </div>
 
-        <div className="flex flex-col space-y-3">
+        <div className="grid gap-3">
           {filteredApps.map((app) => (
             <AppCard
               key={app.id}
               app={app}
-              selected={selectedApp?.id === app.id}
+              selected={false}
               onSelect={handleAppSelect}
             />
           ))}
         </div>
         
         {filteredApps.length === 0 && (
-          <div className="text-center py-8 text-gray-600">
+          <div className="rounded-lg border border-ink/10 bg-surface py-8 text-center text-ink-3">
             {selectedCategory === "popular" 
               ? "No apps found"
               : `No apps found in ${selectedCategory} category`}
           </div>
         )}
       </div>
-
-      <MiniAppModal
-        isOpen={!!selectedApp}
-        appUrl={selectedApp?.appURL || null}
-        appId={selectedApp?.id || ""}
-        appName={selectedApp?.appName || ""}
-        onClose={handleClose}
-        isGeneratedApp={selectedApp?.isGeneratedApp || false}
-        htmlContent={selectedApp?.htmlContent || null}
-      />
     </>
   )
 }

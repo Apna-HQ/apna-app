@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { PushNotificationToggle } from '@/components/atoms/PushNotificationToggle'
-import { AlertTriangle, Bell } from 'lucide-react'
+import { AlertTriangle, Bell, Loader2 } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
@@ -197,8 +197,8 @@ export default function PushNotificationSettings() {
   };
 
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-gray-600">
+    <div className="space-y-4 text-ink">
+      <p className="text-sm text-ink-3">
         Subscribe to push notifications to stay updated with the latest information and alerts.
         Your subscription data is securely stored using Nostr&apos;s encrypted direct messages.
       </p>
@@ -229,12 +229,12 @@ export default function PushNotificationSettings() {
       )}
       
       {success && (
-        <Alert variant="default" className="bg-green-50 border-green-200 text-green-800">
+        <Alert variant="default" className="border-apna-green/20 bg-apna-green/10 text-apna-green">
           <AlertDescription>{success}</AlertDescription>
         </Alert>
       )}
       
-      <div className="p-3 bg-gray-50 rounded-lg text-xs text-gray-600 border border-gray-200">
+      <div className="rounded-lg border border-ink/10 bg-chrome p-3 text-xs text-ink-3">
         <p>
           <strong>Server:</strong> {SERVER_NPUB ? `${SERVER_NPUB.slice(0, 10)}...${SERVER_NPUB.slice(-5)}` : '(not configured)'}
         </p>
@@ -255,10 +255,10 @@ export default function PushNotificationSettings() {
           onClick={handleTestNotification}
           disabled={isTestingNotification || !userKeyPair || !('serviceWorker' in navigator) || !('PushManager' in window)}
           variant="outline"
-          className="flex items-center gap-2"
+          className="flex items-center gap-2 border-ink/10 bg-surface text-ink-2 hover:bg-surface-2"
         >
           {isTestingNotification ? (
-            <span className="animate-spin">⏳</span>
+            <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             <Bell className="h-4 w-4" />
           )}

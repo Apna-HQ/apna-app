@@ -13,7 +13,7 @@ export function SimpleAppCard({ app, onSelect }: SimpleAppCardProps) {
   return (
     <button
       onClick={() => onSelect(app.appURL || null, app.id, app.isGeneratedApp)}
-      className="w-full bg-white rounded-xl shadow-sm hover:shadow-xl transition-all duration-300"
+      className="w-full bg-surface rounded-xl border border-ink/10 hover:border-ink/20 transition-all duration-300"
     >
       <div className="flex items-center p-4 gap-4">
         <div className="w-12 h-12 shrink-0 rounded-lg overflow-hidden flex items-center justify-center">
@@ -26,20 +26,20 @@ export function SimpleAppCard({ app, onSelect }: SimpleAppCardProps) {
                 const target = e.currentTarget;
                 const parent = target.parentElement;
                 if (parent) {
-                  parent.className = "w-12 h-12 shrink-0 rounded-lg overflow-hidden bg-[#e6efe9] flex items-center justify-center";
-                  parent.innerHTML = `<div class="w-full h-full flex items-center justify-center text-[#368564] text-xl font-semibold">${app.appName.charAt(0).toUpperCase()}</div>`;
+                  parent.className = "w-12 h-12 shrink-0 rounded-lg overflow-hidden bg-amber-soft flex items-center justify-center";
+                  parent.innerHTML = `<div class="w-full h-full flex items-center justify-center text-amber-strong text-xl font-semibold">${app.appName.charAt(0).toUpperCase()}</div>`;
                 }
               }}
             />
           ) : (
-            <div className="w-12 h-12 shrink-0 rounded-lg overflow-hidden bg-[#e6efe9] flex items-center justify-center">
-              <div className="w-full h-full flex items-center justify-center text-[#368564] text-xl font-semibold">
+            <div className="w-12 h-12 shrink-0 rounded-lg overflow-hidden bg-amber-soft flex items-center justify-center">
+              <div className="w-full h-full flex items-center justify-center text-amber-strong text-xl font-semibold">
                 {app.appName.charAt(0).toUpperCase()}
               </div>
             </div>
           )}
         </div>
-        <h2 className="flex-1 text-lg font-medium text-left text-gray-900 group-hover:text-[#368564] transition-colors truncate">
+        <h2 className="flex-1 text-lg font-medium text-left text-ink group-hover:text-amber-strong transition-colors truncate">
           {app.appName}
         </h2>
       </div>

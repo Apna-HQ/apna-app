@@ -61,7 +61,7 @@ export default function AdminPage() {
 
   if (!profile || !isAuthorized) {
     return (
-      <div className="container max-w-4xl mx-auto p-4">
+      <div className="min-h-[calc(100dvh-3rem)] bg-shell p-4 text-ink">
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Unauthorized</AlertTitle>
@@ -74,16 +74,24 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="container max-w-4xl mx-auto p-4">
-      <div className="space-y-6">
-        <section className="border rounded-lg p-4">
-          <h2 className="text-lg font-semibold mb-4">Admin Settings</h2>
+    <div className="min-h-[calc(100dvh-3rem)] bg-shell px-4 py-6 text-ink md:px-8">
+      <div className="mx-auto max-w-4xl space-y-6">
+        <header className="border-b border-ink/10 pb-5">
+          <p className="font-mono text-[11px] uppercase tracking-[0.08em] text-ink-3">
+            Shell
+          </p>
+          <h1 className="mt-1 text-3xl font-semibold tracking-normal">
+            Admin Settings
+          </h1>
+        </header>
+
+        <section className="rounded-xl border border-ink/10 bg-surface p-4">
           
           <div className="space-y-4">
-            <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg mb-4">
+            <div className="p-4 bg-amber-soft border border-amber-strong/20 rounded-lg mb-4">
               <div className="flex items-start gap-3">
-                <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-amber-800">
+                <AlertTriangle className="w-5 h-5 text-amber-strong flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-ink-2">
                   This section is for administrators only. You need a valid Nostr key with NIP-98
                   authentication to use these features. All actions are authenticated and logged.
                 </p>

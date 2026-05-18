@@ -52,18 +52,18 @@ const Post = ({
 		<div className="flex flex-col flex-1">
 			<div className="flex flex-1">
 				<div className="flex flex-1 gap-x-1 text-sm">
-					<span className="text-slate-900 font-bold">{name}</span>
-					<span className="text-slate-600 font-medium">@{username}</span>·
-					<span className="text-slate-600 font-medium">{date}</span>
+					<span className="text-ink font-bold">{name}</span>
+					<span className="text-ink-3 font-medium">@{username}</span>·
+					<span className="text-ink-3 font-medium">{date}</span>
 				</div>
 				<div className="">
 					{/* <DropdownMenuDemo /> */}
 				</div>
 			</div>
-			<div className="text-sm text-slate-900 mb-4">{content}</div>
+			<div className="text-sm text-ink mb-4">{content}</div>
 			{children}
 			<div>
-				<ul className="flex gap-x-10 xl:gap-x-14 text-xs text-slate-700 [&_li:first-child]:hidden [&_li:first-child]:lg:flex [&_li]:flex [&_li]:items-center [&_li]:gap-x-2 [&_li:xl]:gap-x-3 ">
+				<ul className="flex gap-x-10 xl:gap-x-14 text-xs text-ink-2 [&_li:first-child]:hidden [&_li:first-child]:lg:flex [&_li]:flex [&_li]:items-center [&_li]:gap-x-2 [&_li:xl]:gap-x-3 ">
 					<li className="">
 						<HiOutlineChartBarSquare className="w-5 h-5" />
 						20

@@ -6,7 +6,7 @@ import type {
   PermissionDecision,
   PermissionScope,
 } from '@apna/sdk';
-import { ShieldCheck } from 'lucide-react';
+import { Clock3, KeyRound, ShieldCheck } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -72,16 +72,18 @@ export default function PermissionPrompt({
         if (!nextOpen) onCancel?.();
       }}
     >
-      <DialogContent className="max-w-md rounded-lg p-0">
-        <DialogHeader className="border-b px-5 py-4 text-left">
+      <DialogContent className="max-w-[460px] overflow-hidden rounded-xl border-ink/15 bg-shell p-0 text-ink shadow-[0_18px_70px_rgba(40,30,20,0.28)]">
+        <DialogHeader className="border-b border-ink/10 bg-chrome px-5 py-4 text-left">
           <div className="flex items-start gap-3">
-            <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-secondary text-secondary-foreground">
+            <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-soft text-amber-strong">
               <ShieldCheck className="h-5 w-5" />
             </div>
             <div className="min-w-0 space-y-1">
-              <DialogTitle className="text-base">Permission Request</DialogTitle>
-              <p className="break-words text-sm text-muted-foreground">
-                {displayName}
+              <DialogTitle className="text-base">
+                {displayName} wants access
+              </DialogTitle>
+              <p className="break-words text-sm text-ink-3">
+                Apna will grant these capabilities to this mini-app only.
               </p>
             </div>
           </div>
@@ -92,25 +94,38 @@ export default function PermissionPrompt({
             {uniqueCapabilities.map((capability) => (
               <div
                 key={capability}
-                className="rounded-md border bg-background px-3 py-2"
+                className="rounded-lg border border-ink/10 bg-surface px-3 py-2.5"
               >
-                <p className="text-sm font-medium">
-                  {describeCapability(capability)}
-                </p>
-                <p className="break-all text-xs text-muted-foreground">
-                  {capability}
-                </p>
+                <div className="flex items-start gap-2">
+                  <KeyRound className="mt-0.5 h-4 w-4 shrink-0 text-amber-mark" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold">
+                      {describeCapability(capability)}
+                    </p>
+                    <p className="break-all font-mono text-[11px] text-ink-3">
+                      {capability}
+                    </p>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
 
+          <div className="rounded-lg border border-ink/10 bg-chrome px-3 py-2.5 text-xs leading-5 text-ink-3">
+            Denying keeps the mini-app open, but the requested action may fail.
+            You can revoke saved grants later from settings.
+          </div>
+
           <label className="block space-y-2">
-            <span className="text-sm font-medium">Duration</span>
+            <span className="flex items-center gap-2 text-sm font-semibold">
+              <Clock3 className="h-4 w-4 text-ink-3" />
+              Duration
+            </span>
             <Select
               value={scope}
               onValueChange={(value) => setScope(value as PermissionScope)}
             >
-              <SelectTrigger>
+              <SelectTrigger className="border-ink/15 bg-surface">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -124,20 +139,30 @@ export default function PermissionPrompt({
               </SelectContent>
             </Select>
           </label>
+
+          <div className="flex items-center justify-between gap-3 font-mono text-[11px] text-ink-3">
+            <span>
+              {uniqueCapabilities.length} capability request
+              {uniqueCapabilities.length === 1 ? '' : 's'}
+            </span>
+            <span className="min-w-0 truncate">{appId}</span>
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 border-t px-5 py-4">
+        <div className="grid grid-cols-2 gap-3 border-t border-ink/10 bg-chrome px-5 py-4">
           <Button
             type="button"
             variant="outline"
-            className={cn('w-full')}
+            className={cn(
+              'w-full border-ink/15 bg-surface text-ink-2 hover:bg-shell'
+            )}
             onClick={() => resolveAll('deny')}
           >
             Deny
           </Button>
           <Button
             type="button"
-            className={cn('w-full')}
+            className={cn('w-full bg-ink text-shell hover:bg-ink/85')}
             onClick={() => resolveAll('allow')}
           >
             Allow

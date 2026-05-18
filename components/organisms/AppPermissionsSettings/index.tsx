@@ -36,12 +36,12 @@ export default function AppPermissionsSettings() {
 
   if (entries.length === 0) {
     return (
-      <div className="rounded-lg border bg-muted/40 p-4">
+      <div className="rounded-lg border border-ink/10 bg-chrome p-4">
         <div className="flex items-start gap-3">
-          <ShieldOff className="mt-0.5 h-5 w-5 text-muted-foreground" />
+          <ShieldOff className="mt-0.5 h-5 w-5 text-ink-3" />
           <div className="space-y-1">
-            <p className="text-sm font-medium">No app permissions yet</p>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm font-medium text-ink">No app permissions yet</p>
+            <p className="text-sm text-ink-3">
               Permission decisions appear here after a mini-app asks to use a
               gated capability.
             </p>
@@ -56,22 +56,22 @@ export default function AppPermissionsSettings() {
       {entries.map(({ appId, permission }) => (
         <div
           key={`${appId}:${permission.capability}`}
-          className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between"
+          className="flex flex-col gap-3 rounded-lg border border-ink/10 bg-chrome p-4 sm:flex-row sm:items-center sm:justify-between"
         >
           <div className="min-w-0 space-y-1">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="break-words text-sm font-medium">{appId}</p>
-              <span className="rounded-md bg-secondary px-2 py-1 text-xs font-medium text-secondary-foreground">
+              <p className="break-words text-sm font-medium text-ink">{appId}</p>
+              <span className="rounded-md border border-ink/10 bg-surface px-2 py-1 text-xs font-medium text-amber-strong">
                 {permission.decision}
               </span>
-              <span className="rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">
+              <span className="rounded-md border border-ink/10 bg-shell px-2 py-1 text-xs font-medium text-ink-3">
                 {permission.scope}
               </span>
             </div>
-            <p className="text-sm text-foreground">
+            <p className="text-sm text-ink-2">
               {describeCapability(permission.capability)}
             </p>
-            <p className="break-all text-xs text-muted-foreground">
+            <p className="break-all text-xs text-ink-3">
               {permission.capability}
             </p>
           </div>
@@ -79,6 +79,7 @@ export default function AppPermissionsSettings() {
             type="button"
             variant="outline"
             size="sm"
+            className="border-ink/10 bg-surface text-ink-2 hover:bg-surface-2"
             onClick={() => {
               revokePermission(appId, permission.capability);
               miniAppInstanceManager.emitToApp(appId, 'permissions:changed', {

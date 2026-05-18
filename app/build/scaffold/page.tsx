@@ -49,9 +49,9 @@ export default function ScaffoldPage() {
   }
 
   const hostingBadgeColor: Record<string, string> = {
-    url: "bg-blue-100 text-blue-700",
-    nostr: "bg-purple-100 text-purple-700",
-    guide: "bg-gray-100 text-gray-600",
+    url: "bg-[#cddff5] text-[#214f88] dark:bg-[#1f3354] dark:text-[#cddff5]",
+    nostr: "bg-[#ddcff2] text-[#593889] dark:bg-[#382558] dark:text-[#ddcff5]",
+    guide: "bg-amber-soft text-amber-strong",
   };
 
   const hostingLabel: Record<string, string> = {
@@ -61,22 +61,22 @@ export default function ScaffoldPage() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-[#f8faf9] pb-20">
+    <div className="min-h-[100dvh] bg-shell pb-20 text-ink">
       <div className="max-w-2xl mx-auto px-4 py-8">
         {/* Back link */}
         <Link
           href="/build"
-          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-6"
+          className="inline-flex items-center gap-1 text-sm text-ink-3 hover:text-ink-2 mb-6"
         >
           <span aria-hidden>&#8592;</span> Back to Build
         </Link>
 
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">
+        <h1 className="text-2xl font-bold text-ink mb-2">
           Download a starter
         </h1>
-        <p className="text-gray-500 mb-8 text-sm">
+        <p className="text-ink-3 mb-8 text-sm">
           Each starter is pre-wired to{" "}
-          <span className="font-medium text-gray-700">@apna/sdk 0.3.2</span>.
+          <span className="font-medium text-ink-2">@apna/sdk 0.3.2</span>.
           Download, run, and publish — your app connects to the Apna host
           automatically.
         </p>
@@ -85,12 +85,12 @@ export default function ScaffoldPage() {
           {TEMPLATES.map((template) => (
             <div
               key={template.id}
-              className="bg-white rounded-xl border border-gray-200 p-5 flex flex-col gap-3"
+              className="bg-surface rounded-xl border border-ink/10 p-5 flex flex-col gap-3"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <h2 className="font-semibold text-gray-900">
+                    <h2 className="font-semibold text-ink">
                       {template.title}
                     </h2>
                     <span
@@ -101,12 +101,12 @@ export default function ScaffoldPage() {
                       {hostingLabel[template.hosting]}
                     </span>
                     {template.badge && (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-[#368564]/10 text-[#368564] font-medium">
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-amber-soft text-amber-strong font-medium">
                         {template.badge}
                       </span>
                     )}
                   </div>
-                  <p className="text-sm text-gray-500">{template.description}</p>
+                  <p className="text-sm text-ink-3">{template.description}</p>
                 </div>
               </div>
 
@@ -114,7 +114,7 @@ export default function ScaffoldPage() {
                 <button
                   onClick={() => handleDownload(template)}
                   disabled={downloading === template.id}
-                  className="text-sm px-4 py-2 rounded-lg bg-[#368564] text-white font-medium hover:bg-[#2d7055] disabled:opacity-50 disabled:cursor-wait transition-colors"
+                  className="text-sm px-4 py-2 rounded-lg bg-amber-strong text-white font-medium hover:bg-amber-strong/90 disabled:opacity-50 disabled:cursor-wait transition-colors"
                 >
                   {downloading === template.id
                     ? "Preparing…"
@@ -128,22 +128,22 @@ export default function ScaffoldPage() {
               {snippet && snippet.id === template.id && (
                 <div className="relative mt-2">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                    <span className="text-xs font-medium text-ink-3 uppercase tracking-wide">
                       Guide
                     </span>
                     <button
                       onClick={() => handleCopy(snippet.text)}
-                      className="text-xs text-[#368564] hover:underline"
+                      className="text-xs text-amber-strong hover:underline"
                     >
                       {copied ? "Copied!" : "Copy all"}
                     </button>
                   </div>
-                  <pre className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-xs text-gray-700 overflow-auto max-h-64 whitespace-pre-wrap break-words">
+                  <pre className="bg-chrome border border-ink/10 rounded-lg p-4 text-xs text-ink-2 overflow-auto max-h-64 whitespace-pre-wrap break-words">
                     {snippet.text}
                   </pre>
                   <button
                     onClick={() => setSnippet(null)}
-                    className="text-xs text-gray-400 hover:text-gray-600 mt-2"
+                    className="text-xs text-ink-3 hover:text-ink-2 mt-2"
                   >
                     Dismiss
                   </button>
@@ -153,11 +153,11 @@ export default function ScaffoldPage() {
           ))}
         </div>
 
-        <p className="text-xs text-gray-400 text-center mt-8">
+        <p className="text-xs text-ink-3 text-center mt-8">
           Need an in-browser editor?{" "}
           <Link
             href="/build/editor"
-            className="text-[#368564] hover:underline"
+            className="text-amber-strong hover:underline"
           >
             Try the live editor
           </Link>{" "}

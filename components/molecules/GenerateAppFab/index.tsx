@@ -89,7 +89,7 @@ export default function GenerateAppFab({ onGenerateApp }: GenerateAppFabProps) {
       {isLoaded && apiKey && (
         <Button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-20 right-4 rounded-full w-14 h-14 shadow-lg bg-[#368564] hover:bg-[#2c6b51] z-50"
+          className="fixed bottom-20 right-4 z-50 h-14 w-14 rounded-full bg-amber-strong shadow-lg hover:bg-amber-strong/90"
           size="icon"
         >
           <Plus className="h-6 w-6 text-white" />
@@ -97,7 +97,7 @@ export default function GenerateAppFab({ onGenerateApp }: GenerateAppFabProps) {
       )}
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="border-ink/10 bg-chrome text-ink sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Generate HTML App</DialogTitle>
           </DialogHeader>
@@ -123,10 +123,10 @@ export default function GenerateAppFab({ onGenerateApp }: GenerateAppFabProps) {
               </div>
             )}
             <div className="space-y-2">
-              <p className="text-sm text-gray-500">App Name:</p>
+              <p className="text-sm text-ink-3">App Name:</p>
               <input
                 type="text"
-                className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#368564]"
+                className="w-full rounded-md border border-ink/10 bg-surface p-2 focus:outline-none focus:ring-2 focus:ring-amber-strong"
                 placeholder="Generated App"
                 value={appName}
                 onChange={(e) => setAppName(e.target.value)}
@@ -134,17 +134,17 @@ export default function GenerateAppFab({ onGenerateApp }: GenerateAppFabProps) {
               />
             </div>
             <div className="space-y-2">
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-ink-3">
                 Describe the functionality you want in your generated app:
               </p>
               <textarea
-                className="w-full min-h-[120px] p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#368564]"
+                className="min-h-[120px] w-full rounded-md border border-ink/10 bg-surface p-2 focus:outline-none focus:ring-2 focus:ring-amber-strong"
                 placeholder="e.g., call nostr.getActiveUserProfile and display the profile result"
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 disabled={isLoading || !apiKey}
               />
-              {error && <p className="text-sm text-red-500">{error}</p>}
+              {error && <p className="text-sm text-danger">{error}</p>}
             </div>
           </div>
           <div className="flex justify-end space-x-2 mt-4">
@@ -153,13 +153,14 @@ export default function GenerateAppFab({ onGenerateApp }: GenerateAppFabProps) {
               variant="outline"
               onClick={() => setIsOpen(false)}
               disabled={isLoading}
+              className="border-ink/10 bg-surface text-ink-2 hover:bg-surface-2"
             >
               Cancel
             </Button>
             <Button
               type="button"
               onClick={handleSubmit}
-              className="bg-[#368564] hover:bg-[#2c6b51] text-white"
+              className="bg-amber-strong text-white hover:bg-amber-strong/90"
               disabled={isLoading || !apiKey}
             >
               {isLoading ? (

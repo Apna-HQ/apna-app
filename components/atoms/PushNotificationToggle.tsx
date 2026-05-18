@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { Bell, BellOff } from 'lucide-react'
+import { Bell, BellOff, Loader2 } from 'lucide-react'
 
 interface PushNotificationToggleProps {
   onSubscribe: () => Promise<void>
@@ -66,7 +66,7 @@ export function PushNotificationToggle({
       className="flex items-center gap-2"
     >
       {isLoading ? (
-        <span className="animate-spin">⏳</span>
+        <Loader2 className="h-4 w-4 animate-spin" />
       ) : isSubscribed ? (
         <>
           <BellOff className="h-4 w-4" />

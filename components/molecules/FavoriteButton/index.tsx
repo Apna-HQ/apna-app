@@ -43,8 +43,8 @@ export function FavoriteButton({ appId, appData }: FavoriteButtonProps) {
       className={`absolute top-4 right-4 p-2 rounded-full transition-all
         ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}
         ${isFavorited 
-          ? 'text-[#368564] hover:text-[#2a6b4f]' 
-          : 'text-gray-400 hover:text-gray-600'
+          ? 'text-amber-strong hover:text-amber-strong'
+          : 'text-ink-3 hover:text-ink-2'
         }`}
     >
       {isLoading ? (

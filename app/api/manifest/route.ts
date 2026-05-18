@@ -61,8 +61,8 @@ export async function GET(request: Request) {
   }
   // console.log(pubkey, favorites, shortcuts)
   const manifest = {
-    theme_color: "#368564",
-    background_color: "#368564",
+    theme_color: "#9b5a16",
+    background_color: "#f6f4ef",
     display: "standalone",
     orientation: "portrait",
     scope: "/",

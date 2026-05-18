@@ -7,10 +7,11 @@ import TopBar from '@/components/organisms/TopBar';
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isLanding = pathname === '/';
+  const ownsChrome = pathname === '/app';
 
   return (
     <div className="min-h-[100dvh] flex flex-col">
-      {!isLanding && (
+      {!isLanding && !ownsChrome && (
         <div className="sticky top-0 z-50">
           <TopBar />
         </div>

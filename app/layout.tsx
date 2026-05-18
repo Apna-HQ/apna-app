@@ -5,12 +5,18 @@ import { ManifestHandler } from '@/components/ManifestHandler'
 import { GeneratedAppsProvider } from '@/lib/contexts/GeneratedAppsContext'
 import Script from 'next/script'
 import AppShell from '@/components/AppShell'
+import { ThemeProvider } from '@/components/ThemeProvider'
 
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: 'Apna',
   description: 'Reference host for Apna apps!',
+  icons: {
+    icon: [
+      { url: '/apna-favicon.svg', type: 'image/svg+xml' },
+    ],
+  },
 }
 
 export const viewport = {
@@ -28,13 +34,15 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className="h-full">
+    <html lang="en" className="h-full" suppressHydrationWarning>
       <head />
       <body className={`${inter.className} antialiased h-full`}>
-        <ManifestHandler />
-        <GeneratedAppsProvider>
-          <AppShell>{children}</AppShell>
-        </GeneratedAppsProvider>
+        <ThemeProvider>
+          <ManifestHandler />
+          <GeneratedAppsProvider>
+            <AppShell>{children}</AppShell>
+          </GeneratedAppsProvider>
+        </ThemeProvider>
       </body>
       <Script id="my-sw">
         {` 

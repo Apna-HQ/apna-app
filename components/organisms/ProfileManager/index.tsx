@@ -390,14 +390,14 @@ export default function ProfileManager({ open, onOpenChange, onProfileChange }: 
     <>
       {/* Error Dialog */}
       <Dialog open={!!error} onOpenChange={() => setError(null)}>
-        <DialogContent>
+        <DialogContent className="border-ink/10 bg-chrome text-ink">
           <DialogHeader>
-            <DialogTitle className="text-red-500">Error</DialogTitle>
+            <DialogTitle className="text-danger">Error</DialogTitle>
           </DialogHeader>
-          <div className="text-gray-700 mt-2">{error}</div>
+          <div className="mt-2 text-ink-2">{error}</div>
           <Button
             onClick={() => setError(null)}
-            className="mt-4 w-full bg-red-500 hover:bg-red-600 text-white"
+            className="mt-4 w-full bg-danger text-white hover:bg-danger/90"
           >
             Close
           </Button>
@@ -406,33 +406,33 @@ export default function ProfileManager({ open, onOpenChange, onProfileChange }: 
       
       {/* Auth URL Dialog */}
       <Dialog open={!!authUrl} onOpenChange={() => setAuthUrl(null)}>
-        <DialogContent>
+        <DialogContent className="border-ink/10 bg-chrome text-ink">
           <DialogHeader>
             <DialogTitle>Authentication Required</DialogTitle>
           </DialogHeader>
-          <div className="text-gray-700 mt-2">
+          <div className="mt-2 text-ink-2">
             <p className="mb-4">The remote signer requires authentication. The authentication page has been opened in a new tab.</p>
-            <div className="bg-gray-100 p-3 rounded-md break-all">
+            <div className="break-all rounded-md border border-ink/10 bg-surface p-3">
               <button
                 onClick={() => authUrl && window.open(authUrl, "_blank")}
-                className="text-blue-600 hover:underline flex items-center gap-2 text-left"
+                className="flex items-center gap-2 text-left text-amber-strong hover:underline"
               >
                 {authUrl}
                 <Link className="w-4 h-4" />
               </button>
             </div>
-            <p className="mt-4 text-sm text-gray-500">After authenticating, you&apos;ll be able to use the remote signer.</p>
+            <p className="mt-4 text-sm text-ink-3">After authenticating, you&apos;ll be able to use the remote signer.</p>
           </div>
           <div className="flex flex-col gap-2 mt-4">
             <Button
               onClick={() => setAuthUrl(null)}
-              className="w-full bg-[#368564] hover:bg-[#2a684d] text-white"
+              className="w-full bg-amber-strong hover:bg-amber-strong/90 text-white"
             >
               I&apos;ve Accepted the Connection Request
             </Button>
             <Button
               onClick={() => setAuthUrl(null)}
-              className="w-full bg-white hover:bg-gray-50 text-gray-700 border border-gray-300"
+              className="w-full border border-ink/10 bg-surface text-ink-2 hover:bg-surface-2"
             >
               Cancel
             </Button>
@@ -442,22 +442,22 @@ export default function ProfileManager({ open, onOpenChange, onProfileChange }: 
       
       {/* Confirm Remove Dialog */}
       <Dialog open={!!confirmRemoveNpub} onOpenChange={() => setConfirmRemoveNpub(null)}>
-        <DialogContent>
+        <DialogContent className="border-ink/10 bg-chrome text-ink">
           <DialogHeader>
             <DialogTitle>Confirm Remove Profile</DialogTitle>
-            <div className="text-sm text-gray-500 mt-1">
+            <div className="mt-1 text-sm text-ink-3">
               Are you sure you want to remove this profile? This action cannot be undone.
             </div>
           </DialogHeader>
           <div className="flex justify-end gap-2 mt-4">
             <Button
-              className="border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 hover:text-gray-900 px-4 py-2"
+              className="border border-ink/10 bg-surface px-4 py-2 text-ink-2 hover:bg-surface-2"
               onClick={() => setConfirmRemoveNpub(null)}
             >
               Cancel
             </Button>
             <Button
-              className="bg-red-500 hover:bg-red-600 text-white px-4 py-2"
+              className="bg-danger px-4 py-2 text-white hover:bg-danger/90"
               onClick={confirmRemoveProfile}
             >
               Remove
@@ -468,10 +468,10 @@ export default function ProfileManager({ open, onOpenChange, onProfileChange }: 
       
       {/* Duplicate Profile Dialog */}
       <Dialog open={!!duplicateProfile} onOpenChange={() => setDuplicateProfile(null)}>
-        <DialogContent>
+        <DialogContent className="border-ink/10 bg-chrome text-ink">
           <DialogHeader>
             <DialogTitle>Duplicate Profile</DialogTitle>
-            <div className="text-sm text-gray-500 mt-1">
+            <div className="mt-1 text-sm text-ink-3">
               This nsec key already exists for profile:
               <span className="font-mono ml-1">
                 {duplicateProfile?.npub?.slice(0, 8)}...{duplicateProfile?.npub?.slice(-8)}
@@ -481,7 +481,7 @@ export default function ProfileManager({ open, onOpenChange, onProfileChange }: 
           </DialogHeader>
           <div className="flex justify-end gap-2 mt-4">
             <Button
-              className="border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 hover:text-gray-900 px-4 py-2"
+              className="border border-ink/10 bg-surface px-4 py-2 text-ink-2 hover:bg-surface-2"
               onClick={() => {
                 setDuplicateProfile(null);
                 setPendingImport(null);
@@ -490,7 +490,7 @@ export default function ProfileManager({ open, onOpenChange, onProfileChange }: 
               Cancel
             </Button>
             <Button
-              className="bg-[#368564] hover:bg-[#2a684d] text-white px-4 py-2"
+              className="bg-amber-strong hover:bg-amber-strong/90 text-white px-4 py-2"
               onClick={() => {
                 if (pendingImport) {
                   completeImport(pendingImport.nsec, pendingImport.npub, pendingImport.alias);
@@ -505,21 +505,21 @@ export default function ProfileManager({ open, onOpenChange, onProfileChange }: 
       
       {/* Export Profile Dialog */}
       <Dialog open={isExportOpen} onOpenChange={setIsExportOpen}>
-        <DialogContent>
+        <DialogContent className="border-ink/10 bg-chrome text-ink">
           <DialogHeader>
             <DialogTitle>Export Private Key</DialogTitle>
-            <div className="text-sm text-gray-500 mt-1">
+            <div className="mt-1 text-sm text-ink-3">
               This is your private key. Never share it with anyone!
             </div>
           </DialogHeader>
-          <div className="bg-gray-100 p-3 rounded-md overflow-x-auto">
+          <div className="overflow-x-auto rounded-md border border-ink/10 bg-surface p-3">
             <code className="text-sm break-all">
               {exportNpub && getUserProfileByNpub(exportNpub)?.nsec}
             </code>
           </div>
           <div className="flex justify-end mt-4">
             <Button
-              className="bg-[#368564] hover:bg-[#2a684d] text-white px-4 py-2"
+              className="bg-amber-strong hover:bg-amber-strong/90 text-white px-4 py-2"
               onClick={() => setIsExportOpen(false)}
             >
               Close
@@ -529,20 +529,20 @@ export default function ProfileManager({ open, onOpenChange, onProfileChange }: 
       </Dialog>
       
       <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent>
+        <DrawerContent className="border-ink/10 bg-shell text-ink">
           <div className="mx-auto w-full max-w-lg">
-            <DrawerHeader className="border-b border-gray-100 pb-4 px-4 sm:px-6">
-              <DrawerTitle className="text-xl sm:text-2xl font-semibold text-[#368564]">
+            <DrawerHeader className="border-b border-ink/10 px-4 pb-4 sm:px-6">
+              <DrawerTitle className="text-xl font-semibold text-ink sm:text-2xl">
                 Manage Profiles
               </DrawerTitle>
-              <DrawerDescription className="text-gray-600 text-sm sm:text-base">
+              <DrawerDescription className="text-sm text-ink-3 sm:text-base">
                 Switch between profiles or add a new one
               </DrawerDescription>
             </DrawerHeader>
             
             <div className="p-4 sm:p-6 space-y-6">
               <div className="flex flex-col gap-4">
-                <h3 className="text-md font-medium">User Profiles</h3>
+                <h3 className="text-md font-medium text-ink">User Profiles</h3>
                 
                 {profiles.length > 0 ? (
                   <div className="space-y-4">
@@ -551,8 +551,8 @@ export default function ProfileManager({ open, onOpenChange, onProfileChange }: 
                         key={profile.npub}
                         className={`flex flex-col p-3 rounded-lg border ${
                           profile.npub === activeNpub
-                            ? 'border-[#368564] bg-[#e6efe9]'
-                            : 'border-gray-200'
+                            ? 'border-amber-strong bg-amber-soft'
+                            : 'border-ink/10 bg-surface'
                         }`}
                       >
                         <div className="flex flex-col gap-2 mb-2">
@@ -562,7 +562,7 @@ export default function ProfileManager({ open, onOpenChange, onProfileChange }: 
                                 <span className="text-sm font-medium">
                                   {profile.alias}
                                 </span>
-                                <span className="font-mono text-xs text-gray-600 ml-2">
+                                <span className="ml-2 font-mono text-xs text-ink-3">
                                   {profile.npub.slice(0, 6)}...{profile.npub.slice(-6)}
                                 </span>
                               </>
@@ -575,27 +575,27 @@ export default function ProfileManager({ open, onOpenChange, onProfileChange }: 
                           
                           <div className="flex flex-wrap gap-2">
                             {profile.npub === activeNpub && (
-                              <span className="text-xs bg-[#368564] text-white px-2 py-0.5 rounded-full">
+                              <span className="text-xs bg-amber-strong text-white px-2 py-0.5 rounded-full">
                                 Active
                               </span>
                             )}
                             {profile.signerType === 'nip46' && (
-                              <span className="text-xs bg-blue-500 text-white px-2 py-0.5 rounded-full">
+                              <span className="rounded-full bg-[#cddff5] px-2 py-0.5 text-xs text-[#214f88]">
                                 Remote
                               </span>
                             )}
                             {profile.signerType === 'nip07' && (
-                              <span className="text-xs bg-purple-500 text-white px-2 py-0.5 rounded-full">
+                              <span className="rounded-full bg-[#ddcff2] px-2 py-0.5 text-xs text-[#593889]">
                                 Extension
                               </span>
                             )}
                             {(profile.signerType === 'local' || !profile.signerType) && (
-                              <span className="text-xs bg-gray-500 text-white px-2 py-0.5 rounded-full">
+                              <span className="rounded-full bg-[#ece8df] px-2 py-0.5 text-xs text-ink-2">
                                 Local
                               </span>
                             )}
                             {profile.npub === activeNpub && profile.isRemoteSigner && (
-                              <span className={`text-xs ${activeConnectionStatus ? 'bg-green-500' : 'bg-red-500'} text-white px-2 py-0.5 rounded-full`}>
+                              <span className={`rounded-full px-2 py-0.5 text-xs ${activeConnectionStatus ? 'bg-[#cfe7d5] text-[#1f5b35]' : 'bg-[#f1c9c2] text-[#84251b]'}`}>
                                 {activeConnectionStatus ? 'Connected' : 'Disconnected'}
                               </span>
                             )}
@@ -604,7 +604,7 @@ export default function ProfileManager({ open, onOpenChange, onProfileChange }: 
                         <div className="flex flex-wrap gap-2">
                           {profile.npub !== activeNpub && (
                             <Button
-                              className="py-1 px-2 text-sm border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 hover:text-gray-900"
+                              className="border border-ink/10 bg-surface px-2 py-1 text-sm text-ink-2 hover:bg-surface-2"
                               onClick={() => handleSwitchProfile(profile.npub)}
                             >
                               Switch
@@ -612,14 +612,14 @@ export default function ProfileManager({ open, onOpenChange, onProfileChange }: 
                           )}
                           {!profile.isRemoteSigner ? (
                             <Button
-                              className="py-1 px-2 text-sm border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 hover:text-gray-900"
+                              className="border border-ink/10 bg-surface px-2 py-1 text-sm text-ink-2 hover:bg-surface-2"
                               onClick={() => handleExportProfile(profile.npub)}
                             >
                               Export
                             </Button>
                           ) : (
                             <Button
-                              className="py-1 px-2 text-sm border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 hover:text-gray-900 opacity-50 cursor-not-allowed"
+                              className="cursor-not-allowed border border-ink/10 bg-surface px-2 py-1 text-sm text-ink-3 opacity-50"
                               disabled
                               title="Remote signer profiles don't have exportable private keys"
                             >
@@ -628,7 +628,7 @@ export default function ProfileManager({ open, onOpenChange, onProfileChange }: 
                           )}
                           {profiles.length > 1 && (
                             <Button
-                              className="py-1 px-2 text-sm bg-red-500 hover:bg-red-600 text-white"
+                              className="bg-danger px-2 py-1 text-sm text-white hover:bg-danger/90"
                               onClick={() => handleRemoveProfile(profile.npub)}
                             >
                               Remove
@@ -639,14 +639,14 @@ export default function ProfileManager({ open, onOpenChange, onProfileChange }: 
                     ))}
                   </div>
                 ) : (
-                  <div className="text-gray-500 text-sm">No profiles found</div>
+                  <div className="text-sm text-ink-3">No profiles found</div>
                 )}
               </div>
               
               <Drawer open={isImportOpen} onOpenChange={setIsImportOpen}>
                 <DrawerTrigger asChild>
                   <Button
-                    className="bg-white hover:bg-[#e6efe9] shadow-sm hover:shadow-md transition-all duration-300 text-[#368564] hover:text-[#2a684d] border border-[#368564] hover:border-[#2a684d]"
+                    className="bg-surface hover:bg-amber-soft shadow-sm hover:shadow-md transition-all duration-300 text-amber-strong hover:text-amber-strong border border-amber-strong hover:border-amber-strong"
                     onClick={() => setIsImportOpen(true)}
                   >
                     <span className="flex items-center gap-2">
@@ -655,13 +655,13 @@ export default function ProfileManager({ open, onOpenChange, onProfileChange }: 
                     </span>
                   </Button>
                 </DrawerTrigger>
-                <DrawerContent>
+                <DrawerContent className="border-ink/10 bg-shell text-ink">
                   <div className="mx-auto w-full max-w-lg">
-                    <DrawerHeader className="border-b border-gray-100 pb-4 px-4 sm:px-6">
-                      <DrawerTitle className="text-xl sm:text-2xl font-semibold text-[#368564]">
+                    <DrawerHeader className="border-b border-ink/10 px-4 pb-4 sm:px-6">
+                      <DrawerTitle className="text-xl font-semibold text-ink sm:text-2xl">
                         Import New Profile
                       </DrawerTitle>
-                      <DrawerDescription className="text-gray-600 text-sm sm:text-base">
+                      <DrawerDescription className="text-sm text-ink-3 sm:text-base">
                         Add a new profile using your nsec key or connect to a remote signer
                       </DrawerDescription>
                     </DrawerHeader>
@@ -688,10 +688,10 @@ export default function ProfileManager({ open, onOpenChange, onProfileChange }: 
                       </TabsList>
                       
                       <TabsContent value="nsec" className="mt-0">
-                        <div className="p-4 bg-gray-50 rounded-lg mb-4 mx-4 sm:mx-6">
+                        <div className="mx-4 mb-4 rounded-lg border border-ink/10 bg-chrome p-4 sm:mx-6">
                           <div className="flex items-start gap-3">
                             <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-                            <p className="text-sm text-gray-700">
+                            <p className="text-sm text-ink-3">
                               Local keys are stored in your browser. While convenient, this means your private key is exposed to this application.
                               For better security, consider using a remote signer.
                             </p>
@@ -705,28 +705,28 @@ export default function ProfileManager({ open, onOpenChange, onProfileChange }: 
                                 name="nsec"
                                 render={({ field }) => (
                                   <FormItem>
-                                    <FormLabel className="text-gray-700">Nsec Key</FormLabel>
+                                    <FormLabel className="text-ink-2">Nsec Key</FormLabel>
                                     <FormControl>
                                       <div className="flex gap-2">
                                         <div className="relative flex-grow">
                                           <Input
                                             placeholder="Enter your nsec"
                                             {...field}
-                                            className="border-gray-200 focus:border-[#368564] focus:ring-[#e6efe9] pl-10 w-full"
+                                            className="w-full border-ink/10 bg-surface pl-10 focus:border-amber-strong focus:ring-amber-strong/20"
                                           />
-                                          <KeyRound className="w-5 h-5 text-[#368564] absolute left-3 top-1/2 transform -translate-y-1/2" />
+                                          <KeyRound className="w-5 h-5 text-amber-strong absolute left-3 top-1/2 transform -translate-y-1/2" />
                                         </div>
                                         <Button
                                           type="button"
                                           onClick={generateRandomNsec}
-                                          className="bg-[#368564] hover:bg-[#2a684d] text-white flex items-center gap-1 px-3"
+                                          className="bg-amber-strong hover:bg-amber-strong/90 text-white flex items-center gap-1 px-3"
                                         >
                                           <Shuffle className="w-4 h-4" />
                                           Random
                                         </Button>
                                       </div>
                                     </FormControl>
-                                    <FormMessage className="text-red-500" />
+                                    <FormMessage className="text-danger" />
                                   </FormItem>
                                 )}
                               />
@@ -736,25 +736,25 @@ export default function ProfileManager({ open, onOpenChange, onProfileChange }: 
                                 name="alias"
                                 render={({ field }) => (
                                   <FormItem>
-                                    <FormLabel className="text-gray-700">Alias (Optional)</FormLabel>
+                                    <FormLabel className="text-ink-2">Alias (Optional)</FormLabel>
                                     <FormControl>
                                       <div className="relative">
                                         <Input
                                           placeholder="Enter a name for this profile"
                                           {...field}
-                                          className="border-gray-200 focus:border-[#368564] focus:ring-[#e6efe9] pl-10"
+                                          className="border-ink/10 bg-surface pl-10 focus:border-amber-strong focus:ring-amber-strong/20"
                                         />
-                                        <User className="w-5 h-5 text-[#368564] absolute left-3 top-1/2 transform -translate-y-1/2" />
+                                        <User className="w-5 h-5 text-amber-strong absolute left-3 top-1/2 transform -translate-y-1/2" />
                                       </div>
                                     </FormControl>
-                                    <FormMessage className="text-red-500" />
+                                    <FormMessage className="text-danger" />
                                   </FormItem>
                                 )}
                               />
                             </div>
                             <Button
                               type="submit"
-                              className="w-full bg-[#368564] hover:bg-[#2a684d] text-white font-semibold py-2 rounded-lg transition-all duration-300 shadow-sm hover:shadow-md"
+                              className="w-full bg-amber-strong hover:bg-amber-strong/90 text-white font-semibold py-2 rounded-lg transition-all duration-300 shadow-sm hover:shadow-md"
                             >
                               Import Key
                             </Button>
@@ -763,10 +763,10 @@ export default function ProfileManager({ open, onOpenChange, onProfileChange }: 
                       </TabsContent>
                       
                       <TabsContent value="extension" className="mt-0">
-                        <div className="p-4 bg-gray-50 rounded-lg mb-4 mx-4 sm:mx-6">
+                        <div className="mx-4 mb-4 rounded-lg border border-ink/10 bg-chrome p-4 sm:mx-6">
                           <div className="flex items-start gap-3">
-                            <AlertTriangle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                            <p className="text-sm text-gray-700">
+                            <AlertTriangle className="w-5 h-5 text-apna-green flex-shrink-0 mt-0.5" />
+                            <p className="text-sm text-ink-3">
                               Browser-extension signers (NIP-07) keep your private key inside
                               the extension. This app never sees your key — it only requests
                               signatures and your public key.
@@ -777,7 +777,7 @@ export default function ProfileManager({ open, onOpenChange, onProfileChange }: 
                           {nip07Available ? (
                             <>
                               <div className="space-y-2">
-                                <label className="text-gray-700 text-sm font-medium">
+                                <label className="text-sm font-medium text-ink-2">
                                   Alias (Optional)
                                 </label>
                                 <div className="relative">
@@ -785,22 +785,22 @@ export default function ProfileManager({ open, onOpenChange, onProfileChange }: 
                                     placeholder="Enter a name for this profile"
                                     value={extensionAlias}
                                     onChange={(e) => setExtensionAlias(e.target.value)}
-                                    className="border-gray-200 focus:border-[#368564] focus:ring-[#e6efe9] pl-10"
+                                    className="border-ink/10 bg-surface pl-10 focus:border-amber-strong focus:ring-amber-strong/20"
                                   />
-                                  <User className="w-5 h-5 text-[#368564] absolute left-3 top-1/2 transform -translate-y-1/2" />
+                                  <User className="w-5 h-5 text-amber-strong absolute left-3 top-1/2 transform -translate-y-1/2" />
                                 </div>
                               </div>
                               <Button
                                 type="button"
                                 onClick={onConnectExtension}
                                 disabled={isConnectingExtension}
-                                className="w-full bg-[#368564] hover:bg-[#2a684d] text-white font-semibold py-2 rounded-lg transition-all duration-300 shadow-sm hover:shadow-md"
+                                className="w-full bg-amber-strong hover:bg-amber-strong/90 text-white font-semibold py-2 rounded-lg transition-all duration-300 shadow-sm hover:shadow-md"
                               >
                                 {isConnectingExtension ? "Connecting..." : "Connect Browser Extension"}
                               </Button>
                             </>
                           ) : (
-                            <div className="text-sm text-gray-700 space-y-2">
+                            <div className="space-y-2 text-sm text-ink-2">
                               <p className="font-medium">No NIP-07 extension detected.</p>
                               <p>
                                 Install a Nostr browser extension such as{" "}
@@ -808,7 +808,7 @@ export default function ProfileManager({ open, onOpenChange, onProfileChange }: 
                                   href="https://getalby.com"
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="text-[#368564] hover:underline"
+                                  className="text-amber-strong hover:underline"
                                 >
                                   Alby
                                 </a>{" "}
@@ -817,7 +817,7 @@ export default function ProfileManager({ open, onOpenChange, onProfileChange }: 
                                   href="https://github.com/fiatjaf/nos2x"
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="text-[#368564] hover:underline"
+                                  className="text-amber-strong hover:underline"
                                 >
                                   nos2x
                                 </a>
@@ -829,10 +829,10 @@ export default function ProfileManager({ open, onOpenChange, onProfileChange }: 
                       </TabsContent>
 
                       <TabsContent value="remote" className="mt-0">
-                        <div className="p-4 bg-gray-50 rounded-lg mb-4 mx-4 sm:mx-6">
+                        <div className="mx-4 mb-4 rounded-lg border border-ink/10 bg-chrome p-4 sm:mx-6">
                           <div className="flex items-start gap-3">
-                            <AlertTriangle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                            <p className="text-sm text-gray-700">
+                            <AlertTriangle className="w-5 h-5 text-apna-green flex-shrink-0 mt-0.5" />
+                            <p className="text-sm text-ink-3">
                               Remote signers keep your private key secure on a separate device or server. 
                               This app will request signatures from the remote signer when needed.
                             </p>
@@ -846,18 +846,18 @@ export default function ProfileManager({ open, onOpenChange, onProfileChange }: 
                                 name="bunkerUrl"
                                 render={({ field }) => (
                                   <FormItem>
-                                    <FormLabel className="text-gray-700">Bunker URL or NIP-05</FormLabel>
+                                    <FormLabel className="text-ink-2">Bunker URL or NIP-05</FormLabel>
                                     <FormControl>
                                       <div className="relative">
                                         <Input
                                           placeholder="bunker://... or name@domain.com"
                                           {...field}
-                                          className="border-gray-200 focus:border-[#368564] focus:ring-[#e6efe9] pl-10"
+                                          className="border-ink/10 bg-surface pl-10 focus:border-amber-strong focus:ring-amber-strong/20"
                                         />
-                                        <Link className="w-5 h-5 text-[#368564] absolute left-3 top-1/2 transform -translate-y-1/2" />
+                                        <Link className="w-5 h-5 text-amber-strong absolute left-3 top-1/2 transform -translate-y-1/2" />
                                       </div>
                                     </FormControl>
-                                    <FormMessage className="text-red-500" />
+                                    <FormMessage className="text-danger" />
                                   </FormItem>
                                 )}
                               />
@@ -867,25 +867,25 @@ export default function ProfileManager({ open, onOpenChange, onProfileChange }: 
                                 name="alias"
                                 render={({ field }) => (
                                   <FormItem>
-                                    <FormLabel className="text-gray-700">Alias (Optional)</FormLabel>
+                                    <FormLabel className="text-ink-2">Alias (Optional)</FormLabel>
                                     <FormControl>
                                       <div className="relative">
                                         <Input
                                           placeholder="Enter a name for this connection"
                                           {...field}
-                                          className="border-gray-200 focus:border-[#368564] focus:ring-[#e6efe9] pl-10"
+                                          className="border-ink/10 bg-surface pl-10 focus:border-amber-strong focus:ring-amber-strong/20"
                                         />
-                                        <User className="w-5 h-5 text-[#368564] absolute left-3 top-1/2 transform -translate-y-1/2" />
+                                        <User className="w-5 h-5 text-amber-strong absolute left-3 top-1/2 transform -translate-y-1/2" />
                                       </div>
                                     </FormControl>
-                                    <FormMessage className="text-red-500" />
+                                    <FormMessage className="text-danger" />
                                   </FormItem>
                                 )}
                               />
                             </div>
                             <Button
                               type="submit"
-                              className="w-full bg-[#368564] hover:bg-[#2a684d] text-white font-semibold py-2 rounded-lg transition-all duration-300 shadow-sm hover:shadow-md"
+                              className="w-full bg-amber-strong hover:bg-amber-strong/90 text-white font-semibold py-2 rounded-lg transition-all duration-300 shadow-sm hover:shadow-md"
                               disabled={isConnecting}
                             >
                               {isConnecting ? "Connecting..." : "Connect to Remote Signer"}

@@ -197,15 +197,15 @@ export function Fab({
                       key={star}
                       variant="ghost"
                       size="sm"
-                      className="p-1 hover:bg-[#e6efe9]"
+                      className="p-1 hover:bg-amber-soft"
                       onMouseEnter={() => setHoveredRating(star)}
                       onMouseLeave={() => setHoveredRating(0)}
                       onClick={() => setRating(star)}
                     >
                       <Star
                         className="w-8 h-8"
-                        fill={(hoveredRating || rating) >= star ? "#368564" : "none"}
-                        color="#368564"
+                        fill={(hoveredRating || rating) >= star ? "hsl(var(--amber-strong))" : "none"}
+                        color="hsl(var(--amber-strong))"
                       />
                     </Button>
                   ))}
@@ -214,12 +214,12 @@ export function Fab({
                   placeholder="Share your feedback about this app (optional)"
                   value={feedback}
                   onChange={handleFeedbackChange}
-                  className="w-full min-h-[100px] p-2 border rounded-md mb-4 focus:outline-none focus:ring-2 focus:ring-[#368564]"
+                  className="w-full min-h-[100px] p-2 border rounded-md mb-4 focus:outline-none focus:ring-2 focus:ring-amber-strong"
                 />
                 <Button
                   onClick={handleRate}
                   disabled={rating === 0}
-                  className="w-full bg-[#368564] hover:bg-[#2c6b51] text-white"
+                  className="w-full bg-amber-strong hover:bg-amber-strong/90 text-white"
                 >
                   Submit Rating
                 </Button>

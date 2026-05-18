@@ -27,7 +27,7 @@ export interface CreateMiniAppInstanceOptions {
   designRemote?: string;
 }
 
-const MAX_ACTIVE_INSTANCES = 1;
+const MAX_ACTIVE_INSTANCES = 8;
 
 class MiniAppInstanceManager {
   private readonly instances = new Map<string, MiniAppInstance>();
@@ -91,6 +91,12 @@ class MiniAppInstanceManager {
 
   emitToApp(appId: string, event: string, payload?: unknown): void {
     this.listByApp(appId).forEach((instance) => {
+      instance.emit(event, payload);
+    });
+  }
+
+  emitToAll(event: string, payload?: unknown): void {
+    Array.from(this.instances.values()).forEach((instance) => {
       instance.emit(event, payload);
     });
   }

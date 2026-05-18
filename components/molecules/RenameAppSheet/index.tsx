@@ -61,10 +61,10 @@ export function RenameAppSheet({
 
   return (
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom">
+      <SheetContent side="bottom" className="border-ink/10 bg-chrome text-ink">
         <SheetHeader>
-          <SheetTitle>Rename App</SheetTitle>
-          <SheetDescription>
+          <SheetTitle className="text-ink">Rename App</SheetTitle>
+          <SheetDescription className="text-ink-3">
             Enter a new name for your app
           </SheetDescription>
         </SheetHeader>
@@ -76,10 +76,10 @@ export function RenameAppSheet({
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="App name"
-              className="w-full"
+              className="w-full border-ink/10 bg-surface focus-visible:ring-amber-strong"
               autoFocus
             />
-            {error && <p className="text-sm text-red-500">{error}</p>}
+            {error && <p className="text-sm text-danger">{error}</p>}
           </div>
           
           <SheetFooter>
@@ -88,10 +88,15 @@ export function RenameAppSheet({
               variant="outline"
               onClick={() => onOpenChange(false)}
               disabled={isSubmitting}
+              className="border-ink/10 bg-surface text-ink-2 hover:bg-surface-2"
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="bg-amber-strong text-white hover:bg-amber-strong/90"
+            >
               {isSubmitting ? "Saving..." : "Save"}
             </Button>
           </SheetFooter>

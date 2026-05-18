@@ -41,6 +41,7 @@ const ExternalAppSchema = z.object({
   categories: z.array(z.enum(APP_CATEGORIES)).min(1, {
     message: "Please select at least one category.",
   }),
+  defaultDisplay: z.enum(["tab", "fullscreen"]),
   mode: z.literal("Full-page"),
   description: z.string().min(10, {
     message: "Description must be at least 10 characters.",
@@ -58,6 +59,7 @@ const GeneratedAppSchema = z.object({
   categories: z.array(z.enum(APP_CATEGORIES)).min(1, {
     message: "Please select at least one category.",
   }),
+  defaultDisplay: z.enum(["tab", "fullscreen"]),
   mode: z.literal("Full-page"),
   description: z.string().min(10, {
     message: "Description must be at least 10 characters.",
@@ -93,6 +95,7 @@ export default function EditApp({ app, onSuccess }: EditAppProps) {
       appName: app.appName,
       ...(app.appURL ? { appUrl: app.appURL } : {}),
       categories: app.categories,
+      defaultDisplay: app.defaultDisplay ?? "tab",
       mode: "Full-page",
       description: app.description,
     } as FormData,
@@ -125,6 +128,7 @@ export default function EditApp({ app, onSuccess }: EditAppProps) {
           appName: data.appName,
           appURL: data.appUrl,
           categories: data.categories,
+          defaultDisplay: data.defaultDisplay,
           mode: data.mode,
           description: data.description,
         };
@@ -134,6 +138,7 @@ export default function EditApp({ app, onSuccess }: EditAppProps) {
           appName: data.appName,
           htmlContent: app.htmlContent, // Keep the original HTML content
           categories: data.categories,
+          defaultDisplay: data.defaultDisplay,
           mode: data.mode,
           description: data.description,
           isGeneratedApp: true,
@@ -165,23 +170,23 @@ export default function EditApp({ app, onSuccess }: EditAppProps) {
     <Drawer open={isOpen} onOpenChange={handleOpenChange}>
       <DrawerContent>
         <div className="mx-auto w-full max-w-lg">
-          <DrawerHeader className="border-b border-gray-100 pb-4 px-4 sm:px-6">
-            <DrawerTitle className="text-xl sm:text-2xl font-semibold text-[#368564]">
+          <DrawerHeader className="border-b border-ink/10 pb-4 px-4 sm:px-6">
+            <DrawerTitle className="text-xl sm:text-2xl font-semibold text-ink">
               Edit App
             </DrawerTitle>
-            <DrawerDescription className="text-gray-600 text-sm sm:text-base">
+            <DrawerDescription className="text-ink-3 text-sm sm:text-base">
               Update your app details
             </DrawerDescription>
           </DrawerHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 p-4 sm:p-6">
               {/* App Type Information */}
-              <div className="bg-gray-50 p-3 rounded-md border border-gray-200 mb-4">
-                <p className="text-sm font-medium text-gray-700">
+              <div className="bg-chrome p-3 rounded-md border border-ink/10 mb-4">
+                <p className="text-sm font-medium text-ink-2">
                   App Type: {app.isGeneratedApp ? "Generated App" : "External App"}
                 </p>
                 {app.isGeneratedApp && (
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-ink-3 mt-1">
                     Generated apps maintain their HTML content when updated
                   </p>
                 )}
@@ -193,15 +198,15 @@ export default function EditApp({ app, onSuccess }: EditAppProps) {
                 name="appName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-gray-700">App Name</FormLabel>
+                    <FormLabel className="text-ink-2">App Name</FormLabel>
                     <FormControl>
                       <Input
                         placeholder="Enter app name"
                         {...field}
-                        className="border-gray-200 focus:border-[#368564] focus:ring-[#e6efe9]"
+                        className="border-ink/10 bg-surface focus:border-amber-strong focus:ring-amber-strong/20"
                       />
                     </FormControl>
-                    <FormMessage className="text-red-500" />
+                    <FormMessage className="text-danger" />
                   </FormItem>
                 )}
               />
@@ -213,15 +218,15 @@ export default function EditApp({ app, onSuccess }: EditAppProps) {
                   name="appUrl"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-gray-700">App URL</FormLabel>
+                      <FormLabel className="text-ink-2">App URL</FormLabel>
                       <FormControl>
                         <Input
                           placeholder="https://your-app-url.com"
                           {...field}
-                          className="border-gray-200 focus:border-[#368564] focus:ring-[#e6efe9]"
+                          className="border-ink/10 bg-surface focus:border-amber-strong focus:ring-amber-strong/20"
                         />
                       </FormControl>
-                      <FormMessage className="text-red-500" />
+                      <FormMessage className="text-danger" />
                     </FormItem>
                   )}
                 />
@@ -229,9 +234,9 @@ export default function EditApp({ app, onSuccess }: EditAppProps) {
               
               {/* HTML Content Preview - Only for generated apps */}
               {appType === "generated" && app.htmlContent && (
-                <div className="p-3 bg-gray-50 rounded-md border border-gray-200">
-                  <p className="text-sm font-medium text-gray-700">HTML Content</p>
-                  <p className="text-xs text-gray-500 mt-1">
+                <div className="p-3 bg-chrome rounded-md border border-ink/10">
+                  <p className="text-sm font-medium text-ink-2">HTML Content</p>
+                  <p className="text-xs text-ink-3 mt-1">
                     The HTML content of this generated app will be preserved when updating
                   </p>
                 </div>
@@ -240,10 +245,41 @@ export default function EditApp({ app, onSuccess }: EditAppProps) {
               {/* Categories - Common for both types */}
               <FormField
                 control={form.control}
+                name="defaultDisplay"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-ink-2">Default open mode</FormLabel>
+                    <FormControl>
+                      <div className="grid grid-cols-2 gap-2">
+                        {(["tab", "fullscreen"] as const).map((mode) => (
+                          <Button
+                            key={mode}
+                            type="button"
+                            variant="outline"
+                            onClick={() => field.onChange(mode)}
+                            className={`rounded-lg px-3 py-2 text-sm capitalize ${
+                              field.value === mode
+                                ? "border-amber-strong bg-amber-strong text-white"
+                                : "border-ink/10 bg-surface text-ink-2 hover:bg-surface-2"
+                            }`}
+                          >
+                            {mode === "tab" ? "Tab screen" : "Fullscreen"}
+                          </Button>
+                        ))}
+                      </div>
+                    </FormControl>
+                    <FormMessage className="text-danger" />
+                  </FormItem>
+                )}
+              />
+
+              {/* Categories - Common for both types */}
+              <FormField
+                control={form.control}
                 name="categories"
                 render={() => (
                   <FormItem>
-                    <FormLabel className="text-gray-700">Categories (select multiple)</FormLabel>
+                    <FormLabel className="text-ink-2">Categories (select multiple)</FormLabel>
                     <div className="flex flex-wrap gap-2">
                       {APP_CATEGORIES.map((category) => (
                         <Button
@@ -253,15 +289,15 @@ export default function EditApp({ app, onSuccess }: EditAppProps) {
                           onClick={() => toggleCategory(category)}
                           className={`rounded-full px-3 py-1 text-sm ${
                             selectedCategories.includes(category)
-                              ? "bg-[#368564] text-white border-[#368564]"
-                              : "bg-white text-gray-700 border-gray-200 hover:bg-[#e6efe9]"
+                              ? "border-amber-strong bg-amber-strong text-white"
+                              : "border-ink/10 bg-surface text-ink-2 hover:bg-surface-2"
                           }`}
                         >
                           {category}
                         </Button>
                       ))}
                     </div>
-                    <FormMessage className="text-red-500" />
+                    <FormMessage className="text-danger" />
                   </FormItem>
                 )}
               />
@@ -272,22 +308,22 @@ export default function EditApp({ app, onSuccess }: EditAppProps) {
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-gray-700">Description</FormLabel>
+                    <FormLabel className="text-ink-2">Description</FormLabel>
                     <FormControl>
                       <Textarea
                         placeholder="Describe your app (max 500 characters)"
                         {...field}
-                        className="border-gray-200 focus:border-[#368564] focus:ring-[#e6efe9] min-h-[100px]"
+                        className="border-ink/10 bg-surface focus:border-amber-strong focus:ring-amber-strong/20 min-h-[100px]"
                       />
                     </FormControl>
-                    <FormMessage className="text-red-500" />
+                    <FormMessage className="text-danger" />
                   </FormItem>
                 )}
               />
               
               <Button
                 type="submit"
-                className="w-full bg-[#368564] hover:bg-[#2a684d] text-white font-semibold py-2 rounded-lg transition-all duration-300 shadow-sm hover:shadow-md"
+                className="w-full rounded-lg bg-amber-strong py-2 font-semibold text-white shadow-sm transition-all duration-300 hover:bg-amber-strong/90 hover:shadow-md"
               >
                 Update App
               </Button>

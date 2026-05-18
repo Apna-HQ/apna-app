@@ -36,12 +36,12 @@ export default function ImportNsecApp() {
     <>
       <div className="space-y-6">
         <div className="flex flex-col gap-4">
-          <h3 className="text-md font-medium">Active Profile</h3>
+          <h3 className="text-md font-medium text-ink">Active Profile</h3>
           
           {activeProfile ? (
-            <div className="flex flex-col p-4 rounded-lg border border-[#368564] bg-[#e6efe9]">
-              <div className="flex items-center gap-2 mb-3">
-                <User className="w-5 h-5 text-[#368564]" />
+            <div className="flex flex-col rounded-lg border border-ink/10 bg-chrome p-4">
+              <div className="mb-3 flex items-center gap-2">
+                <User className="w-5 h-5 text-amber-strong" />
                 {activeProfile.alias ? (
                   <span className="text-sm font-medium">
                     {activeProfile.alias}
@@ -51,20 +51,20 @@ export default function ImportNsecApp() {
                     Unnamed Profile
                   </span>
                 )}
-                <span className="text-xs bg-[#368564] text-white px-2 py-0.5 rounded-full">
+                <span className="text-xs bg-amber-strong text-white px-2 py-0.5 rounded-full">
                   Active
                 </span>
               </div>
               
               <div className="mb-4">
-                <div className="text-xs text-gray-600 mb-1">Public Key:</div>
-                <div className="font-mono text-sm break-all bg-white p-2 rounded border border-gray-200">
+                <div className="mb-1 text-xs text-ink-3">Public Key:</div>
+                <div className="break-all rounded border border-ink/10 bg-surface p-2 font-mono text-sm">
                   {activeProfile.npub}
                 </div>
               </div>
               
               <Button
-                className="bg-white hover:bg-[#e6efe9] shadow-sm hover:shadow-md transition-all duration-300 text-[#368564] hover:text-[#2a684d] border border-[#368564] hover:border-[#2a684d]"
+                className="border border-ink/10 bg-surface text-ink-2 shadow-sm transition-all duration-300 hover:bg-surface-2 hover:text-ink"
                 onClick={() => setIsProfileManagerOpen(true)}
               >
                 <span className="flex items-center gap-2">
@@ -74,10 +74,10 @@ export default function ImportNsecApp() {
               </Button>
             </div>
           ) : (
-            <div className="flex flex-col p-4 rounded-lg border border-gray-200">
-              <div className="text-gray-500 text-sm mb-4">No active profile found</div>
+            <div className="flex flex-col rounded-lg border border-ink/10 bg-chrome p-4">
+              <div className="mb-4 text-sm text-ink-3">No active profile found</div>
               <Button
-                className="bg-white hover:bg-[#e6efe9] shadow-sm hover:shadow-md transition-all duration-300 text-[#368564] hover:text-[#2a684d] border border-[#368564] hover:border-[#2a684d]"
+                className="border border-ink/10 bg-surface text-ink-2 shadow-sm transition-all duration-300 hover:bg-surface-2 hover:text-ink"
                 onClick={() => setIsProfileManagerOpen(true)}
               >
                 <span className="flex items-center gap-2">

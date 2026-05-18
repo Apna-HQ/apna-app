@@ -1,8 +1,7 @@
 'use client'
 
-import React, { useState, ChangeEvent, useEffect } from 'react'
 import { Button } from '../../../components/ui/button'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Settings } from 'lucide-react'
 import UserDrawer from '../UserDrawer'
 import { usePathname, useRouter } from 'next/navigation'
 
@@ -51,24 +50,33 @@ export default function TopBar(props: TopBarProps = {}) {
   const displayBackButton = showBackButton || isSimpleHeader
 
   return (
-    <div className="bg-white border-b border-gray-200 px-4 py-2 flex justify-between items-center">
+    <div className="flex h-12 items-center justify-between border-b border-ink/10 bg-chrome px-4 text-ink">
       <div className="flex items-center gap-3">
         {displayBackButton && (
           <Button
             variant="ghost"
             size="icon"
-            className="hover:bg-[#e6efe9]"
+            className="h-8 w-8 text-ink-3 hover:bg-surface-2 hover:text-ink"
             onClick={handleBackClick}
           >
-            <ArrowLeft className="w-5 h-5 text-[#368564]" />
+            <ArrowLeft className="h-4 w-4" />
           </Button>
         )}
         {!isSimpleHeader && <UserDrawer />}
-        <h1 className="text-lg font-semibold text-[#368564]">
+        <h1 className="text-sm font-semibold text-ink-2">
           {getPageTitle()}
         </h1>
       </div>
-
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8 text-ink-3 hover:bg-surface-2 hover:text-ink"
+        onClick={() => router.push('/settings')}
+        aria-label="Settings"
+      >
+        <Settings className="h-4 w-4" />
+      </Button>
     </div>
   )
 }

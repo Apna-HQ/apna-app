@@ -5,7 +5,7 @@ import BottomNav from "@/components/organisms/BottomNav";
 export default function ExplorePage() {
   return (
     <>
-      <div className="min-h-[100dvh] bg-[#f8faf9] overflow-x-hidden">
+      <div className="min-h-[100dvh] overflow-x-hidden bg-shell text-ink">
         <HomeLauncher />
       </div>
       <BottomNav />

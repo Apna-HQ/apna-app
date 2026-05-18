@@ -9,7 +9,7 @@ import type { OnMount } from "@monaco-editor/react";
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
   ssr: false,
   loading: () => (
-    <div className="w-full h-full bg-[#1e1e1e] text-gray-400 flex items-center justify-center text-sm">
+    <div className="w-full h-full bg-[#1e1e1e] text-ink-3 flex items-center justify-center text-sm">
       Loading editor…
     </div>
   ),

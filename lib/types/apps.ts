@@ -32,12 +32,26 @@ export type AppCategory = typeof APP_CATEGORIES[number];
  */
 export type AppHosting = 'nostr' | 'blossom' | 'url';
 
+/**
+ * Initial open mode for a mini-app inside the host shell.
+ *
+ * - `tab` (default) — opens inside the existing tab frame with header/tab strip visible.
+ * - `fullscreen` — opens with the tab frame in fullscreen state by default. The user can
+ *   still exit fullscreen via the FAB; this only seeds the initial state.
+ */
+export type AppDefaultDisplay = 'tab' | 'fullscreen';
+
 export interface AppDetails {
     appURL?: string;
     appName: string;
     htmlContent?: string;
     /** How the app is loaded. Derived from legacy `isGeneratedApp` when absent. */
     hosting: AppHosting;
+    /**
+     * Metadata hint for how the mini-app should open initially. Defaults to `tab`.
+     * Only seeds the initial state — the user can still toggle fullscreen afterwards.
+     */
+    defaultDisplay?: AppDefaultDisplay;
     /** @deprecated Back-compat alias — use `hosting === 'nostr'` instead. */
     isGeneratedApp?: boolean;
     /**
@@ -67,6 +81,7 @@ export interface ProcessedAppEvent extends NostrEvent {
     appName: string;
     htmlContent?: string;
     hosting: AppHosting;
+    defaultDisplay?: AppDefaultDisplay;
     /** @deprecated Back-compat alias */
     isGeneratedApp?: boolean;
     contentEventId?: string;

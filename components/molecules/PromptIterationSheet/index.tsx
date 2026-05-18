@@ -39,7 +39,7 @@ export default function PromptIterationSheet({
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent side="bottom" className="h-[500px] overflow-y-auto">
+      <SheetContent side="bottom" className="h-[500px] overflow-y-auto border-ink/10 bg-shell text-ink">
         <SheetHeader>
           <SheetTitle>Iterate on Generated App</SheetTitle>
           <SheetDescription>
@@ -49,20 +49,20 @@ export default function PromptIterationSheet({
         
         <div className="py-4 space-y-4">
           <div className="space-y-2">
-            <h3 className="text-sm font-medium">Conversation</h3>
-            <div className="space-y-3 max-h-[250px] overflow-y-auto p-2 border rounded-md">
+            <h3 className="text-sm font-medium text-ink-2">Conversation</h3>
+            <div className="space-y-3 max-h-[250px] overflow-y-auto p-2 border border-ink/10 rounded-md bg-surface">
               {messages.map((message, index) => (
                 <div
                   key={index}
                   className={`p-3 rounded-lg text-sm ${
                     message.role === 'user'
-                      ? 'bg-blue-50 ml-8'
+                      ? 'bg-[#cddff5] text-[#214f88] dark:bg-[#1f3354] dark:text-[#cddff5] ml-8'
                       : message.role === 'system'
-                      ? 'bg-yellow-50'
-                      : 'bg-gray-50 mr-8'
+                      ? 'bg-amber-soft text-ink-2'
+                      : 'bg-chrome text-ink-2 mr-8'
                   }`}
                 >
-                  <div className="font-medium mb-1 text-xs text-gray-500">
+                  <div className="font-medium mb-1 text-xs opacity-70">
                     {message.role === 'user'
                       ? 'You'
                       : message.role === 'system'
@@ -76,9 +76,9 @@ export default function PromptIterationSheet({
           </div>
           
           <div className="space-y-2">
-            <h3 className="text-sm font-medium">Your Message</h3>
+            <h3 className="text-sm font-medium text-ink-2">Your Message</h3>
             <textarea
-              className="w-full min-h-[100px] p-3 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-[#368564]"
+              className="w-full min-h-[100px] p-3 text-sm border border-ink/10 bg-surface rounded-md focus:outline-none focus:ring-2 focus:ring-amber-strong"
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               placeholder="Enter your message here..."
@@ -88,7 +88,7 @@ export default function PromptIterationSheet({
         
         <SheetFooter>
           <Button
-            className="w-full bg-[#368564] hover:bg-[#2c6b51] text-white"
+            className="w-full bg-amber-strong hover:bg-amber-strong/90 text-white"
             onClick={handleSubmit}
             disabled={isLoading || !newMessage.trim()}
           >

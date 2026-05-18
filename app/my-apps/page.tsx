@@ -38,27 +38,27 @@ export default function MyAppsPage() {
 
   if (loading || profileLoading) {
     return (
-      <div className="flex items-center justify-center flex-1 h-[calc(100vh-56px)]">
-        <p className="text-gray-600">Loading your apps...</p>
+      <div className="flex items-center justify-center flex-1 h-[calc(100vh-56px)] bg-shell">
+        <p className="text-ink-3">Loading your apps...</p>
       </div>
     );
   }
 
   if (!keyPair) {
     return (
-      <div className="flex items-center justify-center flex-1 h-[calc(100vh-56px)]">
-        <p className="text-gray-600">Please sign in to view your apps</p>
+      <div className="flex items-center justify-center flex-1 h-[calc(100vh-56px)] bg-shell">
+        <p className="text-ink-3">Please sign in to view your apps</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center flex-1 h-[calc(100vh-56px)]">
-        <p className="text-red-600">Failed to load apps</p>
+      <div className="flex flex-col items-center justify-center flex-1 h-[calc(100vh-56px)] bg-shell">
+        <p className="text-danger">Failed to load apps</p>
         <Button
           onClick={() => refetch(true)}
-          className="mt-4 px-4 py-2 bg-[#368564] text-white rounded-md hover:bg-[#2a6b4f]"
+          className="mt-4 px-4 py-2 bg-amber-strong text-white rounded-md hover:bg-amber-strong/90"
         >
           Retry
         </Button>
@@ -68,8 +68,17 @@ export default function MyAppsPage() {
 
   return (
     <>
-      <div className="p-4 pb-20">
-        <div className="flex flex-col space-y-3">
+      <div className="min-h-[calc(100dvh-3rem)] bg-shell px-4 py-6 pb-20 text-ink md:px-8">
+        <div className="mx-auto max-w-5xl">
+          <header className="mb-6 border-b border-ink/10 pb-5">
+            <p className="font-mono text-[11px] uppercase tracking-[0.08em] text-ink-3">
+              Developer
+            </p>
+            <h1 className="mt-1 text-3xl font-semibold tracking-normal">
+              My Apps
+            </h1>
+          </header>
+          <div className="flex flex-col space-y-3">
           {myApps.map((app) => (
             <AppCard
               key={app.id}
@@ -79,12 +88,13 @@ export default function MyAppsPage() {
               onSelect={() => setSelectedApp(app)}
             />
           ))}
-        </div>
-        {myApps.length === 0 && (
-          <div className="text-center py-8 text-gray-600">
-            You haven&apos;t published any apps yet
           </div>
-        )}
+          {myApps.length === 0 && (
+            <div className="rounded-lg border border-ink/10 bg-surface py-8 text-center text-ink-3">
+              You haven&apos;t published any apps yet
+            </div>
+          )}
+          </div>
       </div>
       {selectedApp && (
         <EditApp

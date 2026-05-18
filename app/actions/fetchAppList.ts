@@ -2,7 +2,14 @@
 
 import { Event as NostrEvent } from 'nostr-tools';
 import { fetchAllFromRelaysFast } from '@/lib/nostr/core';
-import { AppDetails, APP_CATEGORIES, AppCategory, AppHosting, deriveHosting } from '@/lib/types/apps';
+import {
+    AppDetails,
+    APP_CATEGORIES,
+    AppCategory,
+    AppDefaultDisplay,
+    AppHosting,
+    deriveHosting,
+} from '@/lib/types/apps';
 import { APPS_ROOT_NOTE_ID } from '@/lib/constants';
 
 interface AppDetailsJSON {
@@ -10,6 +17,7 @@ interface AppDetailsJSON {
     appName: string;
     htmlContent?: string;
     hosting: AppHosting;
+    defaultDisplay?: AppDefaultDisplay;
     isGeneratedApp?: boolean;
     contentEventId?: string;
     blossomUrl?: string;
@@ -37,11 +45,16 @@ function parseAppDetailsFromJSON(text: string): AppDetailsJSON | null {
             appURL: json.appURL,
             blossomUrl: json.blossomUrl,
         });
+        const defaultDisplay =
+            json.defaultDisplay === 'fullscreen' || json.defaultDisplay === 'tab'
+                ? json.defaultDisplay
+                : undefined;
         return {
             appURL: json.appURL,
             appName: json.appName,
             htmlContent: json.htmlContent,
             hosting,
+            defaultDisplay,
             isGeneratedApp: hosting === 'nostr' || hosting === 'blossom',
             contentEventId: json.contentEventId,
             blossomUrl: json.blossomUrl,
@@ -311,6 +324,7 @@ export async function fetchAppListAction(_revalidate = false): Promise<AppDetail
             appName: d.appName,
             htmlContent: d.htmlContent,
             hosting: d.hosting,
+            defaultDisplay: d.defaultDisplay,
             isGeneratedApp: d.hosting === 'nostr' || d.hosting === 'blossom',
             contentEventId: d.contentEventId,
             blossomUrl: d.blossomUrl,

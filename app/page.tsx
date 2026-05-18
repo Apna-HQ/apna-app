@@ -1,11 +1,11 @@
 "use client"
 
-import Image from "next/image";
 import Link from "next/link";
 import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Boxes, Code2, KeyRound } from "lucide-react";
 
+import { ApnaLogo } from "@/components/atoms/ApnaLogo";
 import { Button } from "@/components/ui/button";
 
 // Wrapped in Suspense below — useSearchParams() requires a Suspense boundary for
@@ -37,30 +37,19 @@ export default function LandingPage() {
 
 function LandingPageBody() {
   return (
-    <div className="min-h-[100dvh] bg-background text-foreground">
+    <div className="min-h-[100dvh] bg-shell text-ink">
       <section className="relative overflow-hidden px-6 py-16 md:py-24 lg:py-28">
-        {/* Ambient backdrop — two soft brand-green glows plus a faint dot grid.
-            Replaces the watermark logo that read as visual noise behind the
-            feature list. Decorative only, no content. */}
         <div aria-hidden className="pointer-events-none absolute inset-0 -z-0">
-          <div className="absolute inset-0 opacity-[0.08] [background-image:radial-gradient(circle_at_1px_1px,#368564_1px,transparent_0)] [background-size:24px_24px]" />
-          <div className="absolute -right-32 -top-24 h-[28rem] w-[28rem] rounded-full bg-[#368564]/20 blur-3xl" />
-          <div className="absolute -bottom-32 -left-24 h-[22rem] w-[22rem] rounded-full bg-[#368564]/10 blur-3xl" />
-          <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-background to-transparent" />
+          <div className="absolute inset-0 opacity-[0.08] [background-image:radial-gradient(circle_at_1px_1px,hsl(var(--ink))_1px,transparent_0)] [background-size:24px_24px]" />
+          <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-shell to-transparent" />
         </div>
 
         <div className="relative mx-auto grid w-full max-w-6xl gap-10 md:gap-14 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:items-center">
           {/* Left: brand + tagline + CTAs */}
           <div className="max-w-2xl space-y-7">
             <div className="flex items-center gap-3">
-              <Image
-                src="/icon-192x192.png"
-                alt="Apna"
-                width={48}
-                height={48}
-                className="h-12 w-12 rounded-lg"
-              />
-              <span className="text-sm font-medium text-muted-foreground">
+              <ApnaLogo variant="lockup" size={48} />
+              <span className="text-sm font-medium text-ink-3">
                 Open mini-app host
               </span>
             </div>
@@ -68,7 +57,7 @@ function LandingPageBody() {
               <h1 className="text-5xl font-semibold leading-none sm:text-6xl lg:text-7xl">
                 Apna
               </h1>
-              <p className="max-w-xl text-lg leading-8 text-muted-foreground lg:text-xl lg:leading-9">
+              <p className="max-w-xl text-lg leading-8 text-ink-3 lg:text-xl lg:leading-9">
                 A host for iframe mini-apps, Nostr-rooted identity, and an SDK
                 that lets apps ask for only the capabilities they need.
               </p>
@@ -107,14 +96,14 @@ function LandingPageBody() {
             ].map(({ icon: Icon, title, body }) => (
               <div
                 key={title}
-                className="group flex items-start gap-3 rounded-xl border border-border/60 bg-card/60 p-4 backdrop-blur-sm transition-colors hover:border-[#368564]/40 hover:bg-card"
+                className="group flex items-start gap-3 rounded-xl border border-ink/10 bg-surface/80 p-4 backdrop-blur-sm transition-colors hover:border-amber-strong/40 hover:bg-surface"
               >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#368564]/10 text-[#368564] transition-colors group-hover:bg-[#368564]/15">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-soft text-amber-strong transition-colors">
                   <Icon className="h-5 w-5" />
                 </div>
                 <div className="space-y-0.5">
                   <p className="text-sm font-semibold leading-snug">{title}</p>
-                  <p className="text-xs leading-relaxed text-muted-foreground">
+                  <p className="text-xs leading-relaxed text-ink-3">
                     {body}
                   </p>
                 </div>
@@ -124,10 +113,10 @@ function LandingPageBody() {
         </div>
       </section>
 
-      <section className="border-t px-6 py-8 md:py-10">
-        <div className="mx-auto flex max-w-6xl flex-col gap-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+      <section className="border-t border-ink/10 px-6 py-8 md:py-10">
+        <div className="mx-auto flex max-w-6xl flex-col gap-3 text-sm text-ink-3 sm:flex-row sm:items-center sm:justify-between">
           <p>Reference host, SDK, and mini-app builder in one workspace.</p>
-          <Link className="font-medium text-foreground hover:text-[#368564]" href="/explore">
+          <Link className="font-medium text-ink hover:text-amber-strong" href="/explore">
             Browse public apps →
           </Link>
         </div>
@@ -135,4 +124,3 @@ function LandingPageBody() {
     </div>
   );
 }
-

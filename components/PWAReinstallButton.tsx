@@ -72,6 +72,7 @@ export function PWAReinstallButton() {
     <Button 
       onClick={handleReinstall}
       variant="outline"
+      className="border-ink/10 bg-surface text-ink-2 hover:bg-surface-2"
     >
       Reinstall PWA
     </Button>

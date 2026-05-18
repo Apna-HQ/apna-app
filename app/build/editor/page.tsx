@@ -102,7 +102,7 @@ const STARTER_HTML = `<!DOCTYPE html>
       color: #1f2937;
       line-height: 1.5;
     }
-    h1 { color: #368564; font-size: 1.5rem; margin: 0 0 4px; }
+    h1 { color: #9b5a16; font-size: 1.5rem; margin: 0 0 4px; }
     .sub { color: #6b7280; font-size: 0.875rem; margin: 0 0 16px; }
     .card {
       background: #fff;
@@ -122,8 +122,8 @@ const STARTER_HTML = `<!DOCTYPE html>
     .card h2 code {
       text-transform: none;
       letter-spacing: 0;
-      color: #368564;
-      background: #e6efe9;
+      color: #9b5a16;
+      background: #f1e4d0;
       padding: 1px 5px;
       border-radius: 4px;
       font-size: 0.95em;
@@ -131,7 +131,7 @@ const STARTER_HTML = `<!DOCTYPE html>
     .profile { display: flex; align-items: center; gap: 12px; }
     .avatar {
       width: 44px; height: 44px; border-radius: 50%;
-      background: #e6efe9; flex-shrink: 0; object-fit: cover;
+      background: #f1e4d0; flex-shrink: 0; object-fit: cover;
     }
     .name { font-weight: 600; color: #111827; }
     .npub { font-size: 0.75rem; color: #6b7280; word-break: break-all; }
@@ -147,7 +147,7 @@ const STARTER_HTML = `<!DOCTYPE html>
     }
     .note-avatar {
       width: 28px; height: 28px; border-radius: 50%;
-      background: #e6efe9; flex-shrink: 0; object-fit: cover;
+      background: #f1e4d0; flex-shrink: 0; object-fit: cover;
     }
     .note-author { font-weight: 600; color: #111827; font-size: 0.85rem; line-height: 1.2; }
     .note-author .skeleton {
@@ -159,7 +159,7 @@ const STARTER_HTML = `<!DOCTYPE html>
     .note .meta { font-size: 0.7rem; color: #9ca3af; line-height: 1.2; }
     .note-body { white-space: pre-wrap; word-break: break-word; color: #1f2937; }
     button {
-      background: #368564; color: #fff;
+      background: #9b5a16; color: #fff;
       border: none; border-radius: 8px;
       padding: 10px 14px; font-size: 0.875rem; font-weight: 600;
       cursor: pointer; width: 100%;
@@ -172,7 +172,7 @@ const STARTER_HTML = `<!DOCTYPE html>
       display: inline-block;
       width: 12px; height: 12px;
       border: 2px solid #e5e7eb;
-      border-top-color: #368564;
+      border-top-color: #9b5a16;
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
       vertical-align: -1px;
@@ -198,12 +198,12 @@ const STARTER_HTML = `<!DOCTYPE html>
       width: auto; font-weight: 500;
     }
     .pill.active {
-      background: #368564; border-color: #368564; color: #fff;
+      background: #9b5a16; border-color: #9b5a16; color: #fff;
     }
     .pill:disabled { opacity: 0.5; cursor: not-allowed; }
     .ghost-btn {
-      background: transparent; color: #368564;
-      border: 1px solid #368564; border-radius: 8px;
+      background: transparent; color: #9b5a16;
+      border: 1px solid #9b5a16; border-radius: 8px;
       padding: 8px 14px; font-size: 0.8rem; font-weight: 600;
       cursor: pointer; width: 100%; margin-top: 10px;
     }
@@ -480,6 +480,8 @@ export default function EditorPage() {
   const [publishError, setPublishError] = useState<string | null>(null);
   const [selectedCategories, setSelectedCategories] = useState<AppCategory[]>([]);
   const [publishDescription, setPublishDescription] = useState("");
+  const [publishDefaultDisplay, setPublishDefaultDisplay] =
+    useState<"tab" | "fullscreen">("tab");
   // Hosting strategy chosen at publish time.
   //  - 'auto'    : inline if ≤ 48 KiB, else fall back to a Kind-1 content event
   //  - 'blossom' : always upload the source to a Blossom server (BUD-01) and
@@ -707,6 +709,7 @@ export default function EditorPage() {
           blossomUrl: descriptor.url,
           sha256: descriptor.sha256,
           categories: selectedCategories,
+          defaultDisplay: publishDefaultDisplay,
           mode: "Full-page",
           description: publishDescription,
         };
@@ -719,6 +722,7 @@ export default function EditorPage() {
           hosting: "nostr",
           isGeneratedApp: true,
           categories: selectedCategories,
+          defaultDisplay: publishDefaultDisplay,
           mode: "Full-page",
           description: publishDescription,
         };
@@ -740,6 +744,7 @@ export default function EditorPage() {
           isGeneratedApp: true,
           contentEventId: contentEvent.id,
           categories: selectedCategories,
+          defaultDisplay: publishDefaultDisplay,
           mode: "Full-page",
           description: publishDescription,
         };
@@ -799,12 +804,12 @@ export default function EditorPage() {
 
   return (
     <>
-      <div className="min-h-[100dvh] bg-[#f8faf9] flex flex-col pb-16">
+      <div className="min-h-[100dvh] bg-shell flex flex-col pb-16 text-ink">
         {/* ---- Header ---- */}
-        <header className="border-b border-gray-200 bg-white px-4 py-3 flex items-center gap-3">
+        <header className="border-b border-ink/10 bg-chrome px-4 py-3 flex items-center gap-3">
           <Link
             href="/build"
-            className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
+            className="text-sm text-ink-3 hover:text-ink-2 flex items-center gap-1"
           >
             <span aria-hidden>&#8592;</span> Build
           </Link>
@@ -812,7 +817,7 @@ export default function EditorPage() {
             type="text"
             value={draftName}
             onChange={(e) => setDraftName(e.target.value)}
-            className="flex-1 min-w-0 text-sm font-medium bg-transparent border-none outline-none text-gray-900 placeholder:text-gray-400"
+            className="flex-1 min-w-0 text-sm font-medium bg-transparent border-none outline-none text-ink placeholder:text-ink-3"
             placeholder="App name…"
           />
           <div className="flex items-center gap-2 shrink-0">
@@ -852,7 +857,7 @@ export default function EditorPage() {
             {/* Publish */}
             <Button
               size="sm"
-              className="text-xs bg-[#368564] hover:bg-[#2a6b4f] text-white"
+              className="text-xs bg-amber-strong hover:bg-amber-strong/90 text-white"
               onClick={() => {
                 setPublishStatus("idle");
                 setPublishError(null);
@@ -884,7 +889,7 @@ export default function EditorPage() {
           <div
             className={`absolute inset-0 ${
               previewMode ? "opacity-100" : "opacity-0 pointer-events-none"
-            } transition-opacity bg-white`}
+            } transition-opacity bg-surface`}
           >
             {previewMode && (
               <iframe
@@ -900,7 +905,7 @@ export default function EditorPage() {
         </main>
 
         {/* ---- Status bar ---- */}
-        <footer className="border-t border-gray-200 bg-white px-4 py-1 flex items-center justify-between text-xs text-gray-400">
+        <footer className="border-t border-ink/10 bg-chrome px-4 py-1 flex items-center justify-between text-xs text-ink-3">
           <span>
             {new TextEncoder().encode(source).length.toLocaleString()} bytes
             {new TextEncoder().encode(source).length > INLINE_SIZE_LIMIT && (
@@ -930,7 +935,7 @@ export default function EditorPage() {
 
       {/* ---- AI Generation Dialog ---- */}
       <Dialog open={isAiOpen} onOpenChange={setIsAiOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="border-ink/15 bg-chrome text-ink sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Generate with AI</DialogTitle>
           </DialogHeader>
@@ -948,10 +953,10 @@ export default function EditorPage() {
               </div>
             )}
             <div className="space-y-1">
-              <p className="text-sm font-medium text-gray-700">App name</p>
+              <p className="text-sm font-medium text-ink-2">App name</p>
               <input
                 type="text"
-                className="w-full p-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#368564]"
+                className="w-full p-2 border border-ink/10 bg-surface rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-amber-strong/30"
                 placeholder="Generated App"
                 value={draftName}
                 onChange={(e) => setDraftName(e.target.value)}
@@ -959,15 +964,15 @@ export default function EditorPage() {
               />
             </div>
             <div className="space-y-1">
-              <p className="text-sm font-medium text-gray-700">Describe your app</p>
+              <p className="text-sm font-medium text-ink-2">Describe your app</p>
               <textarea
-                className="w-full min-h-[100px] p-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#368564]"
+                className="w-full min-h-[100px] p-2 border border-ink/10 bg-surface rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-amber-strong/30"
                 placeholder="e.g. a timer app that uses the Apna identity"
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 disabled={isGenerating || !apiKey}
               />
-              {aiError && <p className="text-sm text-red-500">{aiError}</p>}
+              {aiError && <p className="text-sm text-danger">{aiError}</p>}
             </div>
           </div>
           <div className="flex justify-end gap-2 mt-2">
@@ -976,7 +981,7 @@ export default function EditorPage() {
             </Button>
             <Button
               onClick={handleGenerate}
-              className="bg-[#368564] hover:bg-[#2c6b51] text-white"
+              className="bg-amber-strong hover:bg-amber-strong/90 text-white"
               disabled={isGenerating || !apiKey}
             >
               {isGenerating ? (
@@ -1002,17 +1007,18 @@ export default function EditorPage() {
               setPublishStatus("idle");
               setSelectedCategories([]);
               setPublishDescription("");
+              setPublishDefaultDisplay("tab");
             }
           }
         }}
       >
-        <DrawerContent>
+        <DrawerContent className="border-ink/10 bg-shell text-ink">
           <div className="mx-auto w-full max-w-lg">
-            <DrawerHeader className="border-b border-gray-100 pb-4 px-4">
-              <DrawerTitle className="text-xl font-semibold text-[#368564]">
+            <DrawerHeader className="border-b border-ink/10 pb-4 px-4">
+              <DrawerTitle className="text-xl font-semibold text-ink">
                 Publish to Nostr
               </DrawerTitle>
-              <DrawerDescription className="text-gray-500 text-sm">
+              <DrawerDescription className="text-ink-3 text-sm">
                 Your app source is published directly to Nostr — no URL or hosting required.
               </DrawerDescription>
             </DrawerHeader>
@@ -1020,28 +1026,28 @@ export default function EditorPage() {
             <div className="p-4 space-y-5">
               {publishStatus === "success" ? (
                 <div className="text-center py-6 space-y-3">
-                  <p className="text-[#368564] font-semibold text-lg">Published!</p>
-                  <p className="text-gray-500 text-sm">
+                  <p className="text-amber-strong font-semibold text-lg">Published!</p>
+                  <p className="text-ink-3 text-sm">
                     Your app is live and will appear in{" "}
-                    <Link href="/explore" className="underline text-[#368564]">
+                    <Link href="/explore" className="underline text-amber-strong">
                       Explore
                     </Link>{" "}
                     shortly.
                   </p>
                   {lastPublish && (
-                    <div className="mx-auto max-w-sm rounded-lg border border-gray-100 bg-gray-50 p-3 text-left text-xs text-gray-600 space-y-1">
+                    <div className="mx-auto max-w-sm rounded-lg border border-ink/10 bg-chrome p-3 text-left text-xs text-ink-3 space-y-1">
                       <div>
-                        <span className="font-medium text-gray-500">hosting:</span>{" "}
-                        <code className="text-[#368564]">{lastPublish.hosting}</code>
+                        <span className="font-medium text-ink-3">hosting:</span>{" "}
+                        <code className="text-amber-strong">{lastPublish.hosting}</code>
                       </div>
                       {lastPublish.blossomUrl && (
                         <div className="truncate">
-                          <span className="font-medium text-gray-500">blob:</span>{" "}
+                          <span className="font-medium text-ink-3">blob:</span>{" "}
                           <a
                             href={lastPublish.blossomUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-[#368564] underline"
+                            className="text-amber-strong underline"
                           >
                             {lastPublish.blossomUrl}
                           </a>
@@ -1049,20 +1055,20 @@ export default function EditorPage() {
                       )}
                       {lastPublish.sha256 && (
                         <div className="truncate">
-                          <span className="font-medium text-gray-500">sha256:</span>{" "}
-                          <code className="text-gray-700">{lastPublish.sha256.slice(0, 24)}…</code>
+                          <span className="font-medium text-ink-3">sha256:</span>{" "}
+                          <code className="text-ink-2">{lastPublish.sha256.slice(0, 24)}…</code>
                         </div>
                       )}
                       {lastPublish.metadataId && (
                         <div className="truncate">
-                          <span className="font-medium text-gray-500">note id:</span>{" "}
-                          <code className="text-gray-700">{lastPublish.metadataId.slice(0, 24)}…</code>
+                          <span className="font-medium text-ink-3">note id:</span>{" "}
+                          <code className="text-ink-2">{lastPublish.metadataId.slice(0, 24)}…</code>
                         </div>
                       )}
                     </div>
                   )}
                   <Button
-                    className="bg-[#368564] hover:bg-[#2a6b4f] text-white"
+                    className="bg-amber-strong hover:bg-amber-strong/90 text-white"
                     onClick={() => setIsPublishOpen(false)}
                   >
                     Done
@@ -1072,10 +1078,10 @@ export default function EditorPage() {
                 <>
                   {/* App name */}
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-700">App name</label>
+                    <label className="text-sm font-medium text-ink-2">App name</label>
                     <input
                       type="text"
-                      className="w-full p-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#368564]"
+                      className="w-full p-2 border border-ink/10 bg-surface rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-amber-strong/30"
                       value={draftName}
                       onChange={(e) => setDraftName(e.target.value)}
                     />
@@ -1083,9 +1089,9 @@ export default function EditorPage() {
 
                   {/* Description */}
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-700">Description</label>
+                    <label className="text-sm font-medium text-ink-2">Description</label>
                     <textarea
-                      className="w-full min-h-[80px] p-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#368564]"
+                      className="w-full min-h-[80px] p-2 border border-ink/10 bg-surface rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-amber-strong/30"
                       placeholder="Describe your app (min 10 characters)"
                       value={publishDescription}
                       onChange={(e) => setPublishDescription(e.target.value)}
@@ -1095,7 +1101,28 @@ export default function EditorPage() {
 
                   {/* Categories */}
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">
+                    <label className="text-sm font-medium text-ink-2">Default open mode</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {(["tab", "fullscreen"] as const).map((mode) => (
+                        <button
+                          key={mode}
+                          type="button"
+                          onClick={() => setPublishDefaultDisplay(mode)}
+                          className={`rounded-lg border px-3 py-2 text-sm transition-colors ${
+                            publishDefaultDisplay === mode
+                              ? "border-amber-strong bg-amber-strong text-white"
+                              : "border-ink/10 bg-surface text-ink-2 hover:bg-surface-2"
+                          }`}
+                        >
+                          {mode === "tab" ? "Tab screen" : "Fullscreen"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Categories */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-ink-2">
                       Categories (select at least one)
                     </label>
                     <div className="flex flex-wrap gap-2">
@@ -1106,8 +1133,8 @@ export default function EditorPage() {
                           onClick={() => toggleCategory(cat)}
                           className={`rounded-full px-3 py-1 text-sm border transition-colors ${
                             selectedCategories.includes(cat)
-                              ? "bg-[#368564] text-white border-[#368564]"
-                              : "bg-white text-gray-700 border-gray-200 hover:bg-[#e6efe9]"
+                              ? "bg-amber-strong text-white border-amber-strong"
+                              : "bg-surface text-ink-2 border-ink/10 hover:bg-amber-soft"
                           }`}
                         >
                           {cat}
@@ -1118,15 +1145,15 @@ export default function EditorPage() {
 
                   {/* Hosting strategy */}
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">Hosting</label>
+                    <label className="text-sm font-medium text-ink-2">Hosting</label>
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
                         onClick={() => setHostingChoice("auto")}
                         className={`rounded-lg border p-3 text-left text-xs transition-colors ${
                           hostingChoice === "auto"
-                            ? "border-[#368564] bg-[#e6efe9] text-[#1f3a2a]"
-                            : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+                            ? "border-amber-strong bg-amber-soft text-ink"
+                            : "border-ink/10 bg-surface text-ink-2 hover:border-ink/20"
                         }`}
                       >
                         <div className="font-semibold text-sm">Nostr (auto)</div>
@@ -1139,11 +1166,11 @@ export default function EditorPage() {
                         onClick={() => setHostingChoice("blossom")}
                         className={`rounded-lg border p-3 text-left text-xs transition-colors ${
                           hostingChoice === "blossom"
-                            ? "border-[#368564] bg-[#e6efe9] text-[#1f3a2a]"
-                            : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+                            ? "border-amber-strong bg-amber-soft text-ink"
+                            : "border-ink/10 bg-surface text-ink-2 hover:border-ink/20"
                         }`}
                       >
-                        <div className="font-semibold text-sm">Blossom 🌸</div>
+                        <div className="font-semibold text-sm">Blossom</div>
                         <div className="mt-1 text-[11px] leading-snug opacity-80">
                           Content-addressed blob storage. Bigger apps, hash-verified.
                         </div>
@@ -1152,9 +1179,9 @@ export default function EditorPage() {
 
                     {hostingChoice === "blossom" && (
                       <div className="space-y-1 pt-1">
-                        <label className="text-xs font-medium text-gray-500">Blossom server</label>
+                        <label className="text-xs font-medium text-ink-3">Blossom server</label>
                         <select
-                          className="w-full rounded-md border p-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#368564]"
+                          className="w-full rounded-md border border-ink/10 bg-surface p-2 text-xs focus:outline-none focus:ring-2 focus:ring-amber-strong/30"
                           value={blossomServer}
                           onChange={(e) => setBlossomServer(e.target.value)}
                         >
@@ -1167,7 +1194,7 @@ export default function EditorPage() {
                       </div>
                     )}
 
-                    <div className="p-3 bg-[#e6efe9] rounded-lg text-xs text-[#368564]">
+                    <div className="p-3 bg-amber-soft rounded-lg text-xs text-amber-strong">
                       {hostingChoice === "blossom" ? (
                         <>
                           The source will be uploaded to{" "}
@@ -1190,18 +1217,18 @@ export default function EditorPage() {
                   </div>
 
                   {publishStep && (
-                    <p className="flex items-center gap-2 text-xs text-gray-600">
+                    <p className="flex items-center gap-2 text-xs text-ink-3">
                       <Loader2 className="h-3 w-3 animate-spin" />
                       {publishStep}
                     </p>
                   )}
 
                   {publishError && (
-                    <p className="text-sm text-red-500">{publishError}</p>
+                    <p className="text-sm text-danger">{publishError}</p>
                   )}
 
                   <Button
-                    className="w-full bg-[#368564] hover:bg-[#2a6b4f] text-white font-semibold py-2 rounded-lg"
+                    className="w-full bg-amber-strong hover:bg-amber-strong/90 text-white font-semibold py-2 rounded-lg"
                     onClick={handlePublish}
                     disabled={publishStatus === "submitting"}
                   >

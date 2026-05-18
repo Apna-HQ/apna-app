@@ -83,9 +83,9 @@ export default function GeneratedAppsGrid({ onAppSelect }: GeneratedAppsGridProp
   if (loading) {
     return (
       <div className="w-full">
-        <h2 className="text-lg font-medium text-gray-600 mb-4">Generated Apps</h2>
+        <h2 className="text-lg font-medium text-ink-2 mb-4">Generated Apps</h2>
         <div className="flex items-center justify-center min-h-[100px]">
-          <p className="text-gray-600">Loading apps...</p>
+          <p className="text-ink-3">Loading apps...</p>
         </div>
       </div>
     );
@@ -94,9 +94,9 @@ export default function GeneratedAppsGrid({ onAppSelect }: GeneratedAppsGridProp
   if (error) {
     return (
       <div className="w-full">
-        <h2 className="text-lg font-medium text-gray-600 mb-4">Generated Apps</h2>
+        <h2 className="text-lg font-medium text-ink-2 mb-4">Generated Apps</h2>
         <div className="flex items-center justify-center min-h-[100px]">
-          <p className="text-red-500">Error loading apps: {error}</p>
+          <p className="text-danger">Error loading apps: {error}</p>
         </div>
       </div>
     );
@@ -109,7 +109,7 @@ export default function GeneratedAppsGrid({ onAppSelect }: GeneratedAppsGridProp
   return (
     <div className="w-full">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-medium text-gray-600">Generated Apps</h2>
+        <h2 className="text-lg font-medium text-ink-2">Generated Apps</h2>
       </div>
       
       <div className="grid grid-cols-4 gap-4">
@@ -147,7 +147,7 @@ export default function GeneratedAppsGrid({ onAppSelect }: GeneratedAppsGridProp
                   {/* Publish option - only show if not published */}
                   {(!app.published || app.published.every(item => !item)) && (
                     <DropdownMenuItem
-                      className="text-[#368564] focus:text-[#368564]"
+                      className="text-amber-strong focus:text-amber-strong"
                       onClick={() => {
                         setContextMenuApp(null);
                         // Redirect to submit app page with this app pre-selected
@@ -172,7 +172,7 @@ export default function GeneratedAppsGrid({ onAppSelect }: GeneratedAppsGridProp
                   
                   {/* Delete option */}
                   <DropdownMenuItem
-                    className="text-red-500 focus:text-red-500"
+                    className="text-danger focus:text-danger"
                     onClick={() => {
                       setContextMenuApp(null);
                       setAppToDelete(app.id);

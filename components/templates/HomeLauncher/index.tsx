@@ -7,23 +7,38 @@ export default function HomeLauncherComponent() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-[#f8faf9] flex items-center justify-center">
-                <p className="text-gray-600">Initializing profile...</p>
+            <div className="flex min-h-screen items-center justify-center bg-shell">
+                <p className="text-ink-3">Initializing profile...</p>
             </div>
         );
     }
 
     if (error) {
         return (
-            <div className="min-h-screen bg-[#f8faf9] flex items-center justify-center">
-                <p className="text-red-600">Failed to initialize profile: {error}</p>
+            <div className="flex min-h-screen items-center justify-center bg-shell">
+                <p className="text-danger">Failed to initialize profile: {error}</p>
             </div>
         );
     }
 
     return (
-        <div className="min-h-[100dvh] bg-[#f8faf9] overflow-x-hidden">
-            <div className="p-4 pb-20">
+        <div className="min-h-[100dvh] overflow-x-hidden bg-shell text-ink">
+            <div className="mx-auto w-full max-w-5xl px-4 py-6 pb-24 md:px-8">
+                <header className="mb-6 border-b border-ink/10 pb-5">
+                    <p className="font-mono text-[11px] uppercase tracking-[0.08em] text-ink-3">
+                        Store
+                    </p>
+                    <div className="mt-1 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                        <div>
+                            <h1 className="text-3xl font-semibold tracking-normal text-ink">
+                                Explore Mini-Apps
+                            </h1>
+                            <p className="mt-2 max-w-xl text-sm text-ink-3">
+                                Find mini-apps that run inside Apna with shell-owned identity and permissions.
+                            </p>
+                        </div>
+                    </div>
+                </header>
                 <SubmitApp />
                 <AppList />
             </div>

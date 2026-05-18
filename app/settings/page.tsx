@@ -1,66 +1,94 @@
 'use client'
 
+import type { ReactNode } from "react"
+import { BellRing, KeyRound, MonitorDown, ShieldCheck, UserRound } from "lucide-react"
+
 import ImportNsec from "../../components/organisms/ImportNsec"
 import { PWAReinstallButton } from "@/components/PWAReinstallButton"
-import { AlertTriangle } from "lucide-react"
 import OpenRouteApiKeySettings from "@/components/molecules/OpenRouteApiKeySettings"
 import PushNotificationSettings from "@/components/molecules/PushNotificationSettings"
 import AppPermissionsSettings from "@/components/organisms/AppPermissionsSettings"
 
 export default function SettingsPage() {
-  
   return (
-    <div className="container max-w-4xl mx-auto p-4">
-      <div className="space-y-6">
-        <section className="border rounded-lg p-4">
-          <h2 className="text-lg font-semibold mb-4">Account</h2>
-          
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-md font-medium mb-4">Profile Management</h3>
-              <div className="p-4 bg-gray-50 rounded-lg mb-4">
-                <div className="flex items-start gap-3">
-                  <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-                  <p className="text-sm text-gray-700">
-                    You can manage your Nostr profiles below. You can use either local keys (stored in your browser)
-                    or connect to remote signers for enhanced security.
-                  </p>
-                </div>
-              </div>
-              <ImportNsec />
-            </div>
-          </div>
-        </section>
+    <div className="min-h-[calc(100dvh-3rem)] bg-shell px-4 py-6 text-ink md:px-8">
+      <div className="mx-auto w-full max-w-5xl space-y-5">
+        <header className="border-b border-ink/10 pb-5">
+          <p className="font-mono text-[11px] uppercase tracking-[0.08em] text-ink-3">
+            Shell
+          </p>
+          <h1 className="mt-1 text-3xl font-semibold tracking-normal">
+            Settings
+          </h1>
+        </header>
 
-        <section className="border rounded-lg p-4">
-          <h2 className="text-lg font-semibold mb-4">API Settings</h2>
+        <SettingsPanel
+          icon={UserRound}
+          title="Profiles"
+          description="Manage local keys, browser extension signers, and remote signers used by the shell."
+        >
+          <ImportNsec />
+        </SettingsPanel>
+
+        <SettingsPanel
+          icon={KeyRound}
+          title="Builder API"
+          description="Configure the key and model used by app generation workflows."
+        >
           <OpenRouteApiKeySettings />
-        </section>
+        </SettingsPanel>
 
-        <section className="border rounded-lg p-4">
-          <h2 className="text-lg font-semibold mb-4">App Permissions</h2>
+        <SettingsPanel
+          icon={ShieldCheck}
+          title="App Permissions"
+          description="Review and revoke mini-app capability grants."
+        >
           <AppPermissionsSettings />
-        </section>
+        </SettingsPanel>
 
-        <section className="border rounded-lg p-4">
-          <h2 className="text-lg font-semibold mb-4">PWA Settings</h2>
-          <div className="space-y-6">
-            <div className="space-y-4">
-              <h3 className="text-md font-medium">App Installation</h3>
-              <p className="text-sm text-gray-600">
-                If you need to update your PWA installation (for example, to refresh shortcuts or app data),
-                you can reinstall the PWA using the button below.
-              </p>
-              <PWAReinstallButton />
-            </div>
-            
-            <div className="space-y-4 pt-4 border-t">
-              <h3 className="text-md font-medium">Push Notifications</h3>
-              <PushNotificationSettings />
-            </div>
-          </div>
-        </section>
+        <SettingsPanel
+          icon={BellRing}
+          title="Notifications"
+          description="Control encrypted push-notification subscriptions."
+        >
+          <PushNotificationSettings />
+        </SettingsPanel>
+
+        <SettingsPanel
+          icon={MonitorDown}
+          title="Installed App"
+          description="Refresh an installed PWA shell when shortcuts or cached metadata need a reset."
+        >
+          <PWAReinstallButton />
+        </SettingsPanel>
       </div>
     </div>
+  )
+}
+
+function SettingsPanel({
+  icon: Icon,
+  title,
+  description,
+  children,
+}: {
+  icon: typeof UserRound
+  title: string
+  description: string
+  children: ReactNode
+}) {
+  return (
+    <section className="rounded-lg border border-ink/10 bg-surface p-4 md:p-5">
+      <div className="mb-4 flex items-start gap-3">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-amber-soft text-amber-strong">
+          <Icon className="h-4 w-4" />
+        </span>
+        <div>
+          <h2 className="text-sm font-semibold text-ink">{title}</h2>
+          <p className="mt-1 text-sm text-ink-3">{description}</p>
+        </div>
+      </div>
+      {children}
+    </section>
   )
 }

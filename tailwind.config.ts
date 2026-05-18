@@ -59,7 +59,23 @@ const config = {
   			card: {
   				DEFAULT: 'hsl(var(--card))',
   				foreground: 'hsl(var(--card-foreground))'
-  			}
+  			},
+  			shell: 'hsl(var(--shell))',
+  			chrome: 'hsl(var(--chrome))',
+  			surface: {
+  				DEFAULT: 'hsl(var(--surface))',
+  				2: 'hsl(var(--surface-2))'
+  			},
+  			ink: {
+  				DEFAULT: 'hsl(var(--ink))',
+  				2: 'hsl(var(--ink-2))',
+  				3: 'hsl(var(--ink-3))'
+  			},
+  			'amber-strong': 'hsl(var(--amber-strong))',
+  			'amber-soft': 'hsl(var(--amber-soft))',
+  			'amber-mark': 'hsl(var(--amber-mark))',
+  			'apna-green': 'hsl(var(--apna-green))',
+  			danger: 'hsl(var(--danger))'
   		},
   		borderRadius: {
   			lg: 'var(--radius)',

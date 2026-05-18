@@ -51,6 +51,7 @@ const ExternalAppSchema = z.object({
   categories: z.array(z.enum(APP_CATEGORIES)).min(1, {
     message: "Please select at least one category.",
   }),
+  defaultDisplay: z.enum(["tab", "fullscreen"]),
   mode: z.literal("Full-page"),
   description: z.string().min(10, {
     message: "Description must be at least 10 characters.",
@@ -68,6 +69,7 @@ const GeneratedAppSchema = z.object({
   categories: z.array(z.enum(APP_CATEGORIES)).min(1, {
     message: "Please select at least one category.",
   }),
+  defaultDisplay: z.enum(["tab", "fullscreen"]),
   mode: z.literal("Full-page"),
   description: z.string().min(10, {
     message: "Description must be at least 10 characters.",
@@ -126,6 +128,7 @@ export default function SubmitNewApp() {
       appName: "",
       appUrl: "",
       categories: [],
+      defaultDisplay: "tab",
       mode: "Full-page",
       description: "",
     } as FormData,
@@ -155,6 +158,7 @@ export default function SubmitNewApp() {
         appName: "",
         appUrl: "",
         categories: [],
+        defaultDisplay: "tab",
         mode: "Full-page",
         description: "",
       } as FormData)
@@ -201,6 +205,7 @@ export default function SubmitNewApp() {
           appName: data.appName,
           appURL: data.appUrl, // Note: capital URL to match expected structure
           categories: data.categories,
+          defaultDisplay: data.defaultDisplay,
           mode: data.mode,
           description: data.description,
         };
@@ -215,6 +220,7 @@ export default function SubmitNewApp() {
           appName: selectedApp.name,
           htmlContent: selectedApp.htmlContent,
           categories: data.categories,
+          defaultDisplay: data.defaultDisplay,
           mode: data.mode,
           description: data.description,
           isGeneratedApp: true,
@@ -291,7 +297,7 @@ export default function SubmitNewApp() {
       <DrawerTrigger asChild>
         <Button
           variant="default"
-          className="fixed bottom-20 right-4 w-14 h-14 rounded-full bg-[#368564] hover:bg-[#2a684d] text-white shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center p-0 z-50"
+          className="fixed bottom-20 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-amber-strong p-0 text-white shadow-lg transition-all duration-300 hover:bg-amber-strong/90 hover:shadow-xl"
           aria-label="Submit New App"
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -299,13 +305,13 @@ export default function SubmitNewApp() {
           </svg>
         </Button>
       </DrawerTrigger>
-      <DrawerContent>
+      <DrawerContent className="border-ink/10 bg-shell text-ink">
         <div className="mx-auto w-full max-w-lg">
-          <DrawerHeader className="border-b border-gray-100 pb-4 px-4 sm:px-6">
-            <DrawerTitle className="text-xl sm:text-2xl font-semibold text-[#368564]">
+          <DrawerHeader className="border-b border-ink/10 px-4 pb-4 sm:px-6">
+            <DrawerTitle className="text-xl font-semibold text-ink sm:text-2xl">
               Submit New App
             </DrawerTitle>
-            <DrawerDescription className="text-gray-600 text-sm sm:text-base">
+            <DrawerDescription className="text-sm text-ink-3 sm:text-base">
               Share your app with the Apna community
             </DrawerDescription>
           </DrawerHeader>
@@ -330,15 +336,15 @@ export default function SubmitNewApp() {
                     name="appName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-gray-700">App Name</FormLabel>
+                        <FormLabel className="text-ink-2">App Name</FormLabel>
                         <FormControl>
                           <Input
                             placeholder="Enter app name"
                             {...field}
-                            className="border-gray-200 focus:border-[#368564] focus:ring-[#e6efe9]"
+                            className="border-ink/10 bg-surface focus:border-amber-strong focus:ring-amber-strong/20"
                           />
                         </FormControl>
-                        <FormMessage className="text-red-500" />
+                        <FormMessage className="text-danger" />
                       </FormItem>
                     )}
                   />
@@ -347,15 +353,15 @@ export default function SubmitNewApp() {
                     name="appUrl"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-gray-700">App URL</FormLabel>
+                        <FormLabel className="text-ink-2">App URL</FormLabel>
                         <FormControl>
                           <Input
                             placeholder="https://your-app-url.com"
                             {...field}
-                            className="border-gray-200 focus:border-[#368564] focus:ring-[#e6efe9]"
+                            className="border-ink/10 bg-surface focus:border-amber-strong focus:ring-amber-strong/20"
                           />
                         </FormControl>
-                        <FormMessage className="text-red-500" />
+                        <FormMessage className="text-danger" />
                       </FormItem>
                     )}
                   />
@@ -368,7 +374,7 @@ export default function SubmitNewApp() {
                     name="selectedAppId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-gray-700">Select Generated App</FormLabel>
+                        <FormLabel className="text-ink-2">Select Generated App</FormLabel>
                         <Select
                           onValueChange={(value) => {
                             field.onChange(value);
@@ -377,7 +383,7 @@ export default function SubmitNewApp() {
                           value={field.value}
                         >
                           <FormControl>
-                            <SelectTrigger className="border-gray-200 focus:border-[#368564] focus:ring-[#e6efe9]">
+                            <SelectTrigger className="border-ink/10 bg-surface focus:border-amber-strong focus:ring-amber-strong/20">
                               <SelectValue placeholder="Select an app" />
                             </SelectTrigger>
                           </FormControl>
@@ -413,15 +419,15 @@ export default function SubmitNewApp() {
                             )}
                           </SelectContent>
                         </Select>
-                        <FormMessage className="text-red-500" />
+                        <FormMessage className="text-danger" />
                       </FormItem>
                     )}
                   />
                   
                   {selectedApp && (
-                    <div className="p-3 bg-gray-50 rounded-md border border-gray-200">
-                      <p className="text-sm font-medium text-gray-700">Selected App: {selectedApp.name}</p>
-                      <p className="text-xs text-gray-500 mt-1">
+                    <div className="rounded-md border border-ink/10 bg-chrome p-3">
+                      <p className="text-sm font-medium text-ink-2">Selected App: {selectedApp.name}</p>
+                      <p className="mt-1 text-xs text-ink-3">
                         Created: {new Date(selectedApp.createdAt).toLocaleDateString()}
                       </p>
                     </div>
@@ -432,10 +438,40 @@ export default function SubmitNewApp() {
               {/* Common Fields for Both App Types */}
               <FormField
                 control={form.control}
+                name="defaultDisplay"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-ink-2">Default open mode</FormLabel>
+                    <FormControl>
+                      <div className="grid grid-cols-2 gap-2">
+                        {(["tab", "fullscreen"] as const).map((mode) => (
+                          <Button
+                            key={mode}
+                            type="button"
+                            variant="outline"
+                            onClick={() => field.onChange(mode)}
+                            className={`rounded-lg px-3 py-2 text-sm capitalize ${
+                              field.value === mode
+                                ? "border-amber-strong bg-amber-strong text-white"
+                                : "border-ink/10 bg-surface text-ink-2 hover:bg-surface-2"
+                            }`}
+                          >
+                            {mode === "tab" ? "Tab screen" : "Fullscreen"}
+                          </Button>
+                        ))}
+                      </div>
+                    </FormControl>
+                    <FormMessage className="text-danger" />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
                 name="categories"
                 render={() => (
                   <FormItem>
-                    <FormLabel className="text-gray-700">Categories (select multiple)</FormLabel>
+                    <FormLabel className="text-ink-2">Categories (select multiple)</FormLabel>
                     <div className="flex flex-wrap gap-2">
                       {APP_CATEGORIES.map((category) => (
                         <Button
@@ -445,15 +481,15 @@ export default function SubmitNewApp() {
                           onClick={() => toggleCategory(category)}
                           className={`rounded-full px-3 py-1 text-sm ${
                             selectedCategories.includes(category)
-                              ? "bg-[#368564] text-white border-[#368564]"
-                              : "bg-white text-gray-700 border-gray-200 hover:bg-[#e6efe9]"
+                              ? "border-amber-strong bg-amber-strong text-white"
+                              : "border-ink/10 bg-surface text-ink-2 hover:bg-surface-2"
                           }`}
                         >
                           {category}
                         </Button>
                       ))}
                     </div>
-                    <FormMessage className="text-red-500" />
+                    <FormMessage className="text-danger" />
                   </FormItem>
                 )}
               />
@@ -462,21 +498,21 @@ export default function SubmitNewApp() {
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-gray-700">Description</FormLabel>
+                    <FormLabel className="text-ink-2">Description</FormLabel>
                     <FormControl>
                       <Textarea
                         placeholder="Describe your app (max 500 characters)"
                         {...field}
-                        className="border-gray-200 focus:border-[#368564] focus:ring-[#e6efe9] min-h-[100px]"
+                        className="min-h-[100px] border-ink/10 bg-surface focus:border-amber-strong focus:ring-amber-strong/20"
                       />
                     </FormControl>
-                    <FormMessage className="text-red-500" />
+                    <FormMessage className="text-danger" />
                   </FormItem>
                 )}
               />
               <Button
                 type="submit"
-                className="w-full bg-[#368564] hover:bg-[#2a684d] text-white font-semibold py-2 rounded-lg transition-all duration-300 shadow-sm hover:shadow-md"
+                className="w-full rounded-lg bg-amber-strong py-2 font-semibold text-white shadow-sm transition-all duration-300 hover:bg-amber-strong/90 hover:shadow-md"
                 disabled={appType === "generated" && !selectedApp}
               >
                 Submit App

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Key, Save, Trash2, Server } from "lucide-react";
+import { Key, Save, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useOpenRouteApiKey } from "@/lib/hooks/useOpenRouteApiKey";
 
@@ -49,13 +49,13 @@ export default function OpenRouteApiKeySettings() {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="p-4 bg-gray-50 rounded-lg mb-4">
+    <div className="space-y-4 text-ink">
+      <div className="mb-4 rounded-lg border border-ink/10 bg-chrome p-4">
         <div className="flex items-start gap-3">
-          <Key className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-gray-700">
+          <Key className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-strong" />
+          <p className="text-sm text-ink-3">
             Enter your OpenRoute API key below. This key is required for generating apps and will be stored securely in your browser&apos;s local storage.
-            You can get an API key by signing up at <a href="https://openrouter.ai" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">openrouter.ai</a>.
+            You can get an API key by signing up at <a href="https://openrouter.ai" target="_blank" rel="noopener noreferrer" className="font-medium text-amber-strong hover:underline">openrouter.ai</a>.
           </p>
         </div>
       </div>
@@ -68,7 +68,7 @@ export default function OpenRouteApiKeySettings() {
           <input
             id="api-key"
             type="password"
-            className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#368564]"
+            className="w-full rounded-md border border-ink/10 bg-surface p-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-strong"
             placeholder="Enter your OpenRoute API key"
             value={inputApiKey}
             onChange={(e) => setInputApiKey(e.target.value)}
@@ -81,8 +81,8 @@ export default function OpenRouteApiKeySettings() {
               Model Identifier (Optional)
             </label>
             <div className="relative group">
-              <span className="cursor-help text-gray-400 text-xs">ⓘ</span>
-              <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded p-2 w-64 z-10">
+              <span className="cursor-help text-xs text-ink-3">ⓘ</span>
+              <div className="absolute bottom-full left-0 z-10 mb-2 hidden w-64 rounded bg-ink p-2 text-xs text-shell group-hover:block">
                 Enter a specific model identifier (e.g., &quot;anthropic/claude-3.7-sonnet&quot;). If left empty, the default model will be used.
               </div>
             </div>
@@ -90,7 +90,7 @@ export default function OpenRouteApiKeySettings() {
           <input
             id="model"
             type="text"
-            className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#368564]"
+            className="w-full rounded-md border border-ink/10 bg-surface p-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-strong"
             placeholder="e.g., anthropic/claude-3.7-sonnet"
             value={inputModel}
             onChange={(e) => setInputModel(e.target.value)}
@@ -100,7 +100,7 @@ export default function OpenRouteApiKeySettings() {
         <div className="flex gap-2 pt-2">
           <Button
             onClick={handleSaveSettings}
-            className="bg-[#368564] hover:bg-[#2c6b51] text-white"
+            className="bg-amber-strong text-white hover:bg-amber-strong/90"
           >
             <Save className="w-4 h-4 mr-2" />
             Save Settings
@@ -108,7 +108,7 @@ export default function OpenRouteApiKeySettings() {
           <Button
             onClick={handleClearSettings}
             variant="outline"
-            className="border-red-500 text-red-500 hover:bg-red-50"
+            className="border-danger/30 text-danger hover:bg-danger/10"
           >
             <Trash2 className="w-4 h-4 mr-2" />
             Clear Settings
@@ -116,10 +116,10 @@ export default function OpenRouteApiKeySettings() {
         </div>
         
         {saveStatus === "success" && (
-          <p className="text-sm text-green-600">Settings saved successfully!</p>
+          <p className="text-sm text-apna-green">Settings saved successfully.</p>
         )}
         {saveStatus === "error" && (
-          <p className="text-sm text-red-600">Failed to save settings. Please try again.</p>
+          <p className="text-sm text-danger">Failed to save settings. Please try again.</p>
         )}
       </div>
     </div>
