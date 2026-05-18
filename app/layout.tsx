@@ -6,6 +6,7 @@ import { GeneratedAppsProvider } from '@/lib/contexts/GeneratedAppsContext'
 import Script from 'next/script'
 import AppShell from '@/components/AppShell'
 import { ThemeProvider } from '@/components/ThemeProvider'
+import MiniAppThemeSync from '@/components/MiniAppThemeSync'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -39,6 +40,7 @@ export default function RootLayout({
       <head />
       <body className={`${inter.className} antialiased h-full`}>
         <ThemeProvider>
+          <MiniAppThemeSync />
           <ManifestHandler />
           <GeneratedAppsProvider>
             <AppShell>{children}</AppShell>

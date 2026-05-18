@@ -19,6 +19,7 @@ import {
   getDesignSelections,
   subscribeToDesignSelections,
 } from "@/lib/apna-host/design-selections";
+import { emitHostThemeToInstance } from "@/lib/apna-host/theme-sync";
 import type { PermissionPromptResult } from "@/lib/apna-host/permissions";
 import { cn } from "@/lib/utils";
 
@@ -86,7 +87,9 @@ export default function MiniAppTabFrame({
     const stopHandshakeListener = onIframeHandshake(iframeEl, () => {
       if (initialSelectionsTimer) clearTimeout(initialSelectionsTimer);
       initialSelectionsTimer = setTimeout(() => {
-        instance?.emit("design:selections", initialSelections);
+        if (!instance) return;
+        instance.emit("design:selections", initialSelections);
+        emitHostThemeToInstance(instance);
       }, 250);
     });
 
@@ -380,10 +383,13 @@ function DraggableMiniAppFab({
         onClick={toggleOpen}
         className={cn(
           "relative grid place-items-center overflow-hidden rounded-full border border-ink/10 bg-chrome shadow-[0_8px_24px_rgba(40,30,20,0.18)] backdrop-blur transition-colors hover:bg-surface-2 dark:shadow-[0_8px_24px_rgba(0,0,0,0.4)]",
-          "h-11 w-11 cursor-grab active:cursor-grabbing"
+          "h-11 w-11 cursor-grab p-0 active:cursor-grabbing"
         )}
       >
-        <ApnaLogo size={22} />
+        <ApnaLogo
+          size={FAB_SIZE}
+          className="h-full w-full [&>svg]:block [&>svg]:h-full [&>svg]:w-full"
+        />
       </button>
 
       <AnimatePresence initial={false}>

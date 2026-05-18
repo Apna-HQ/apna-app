@@ -39,6 +39,7 @@ import {
   getDesignSelections,
   subscribeToDesignSelections,
 } from "@/lib/apna-host/design-selections";
+import { emitHostThemeToInstance } from "@/lib/apna-host/theme-sync";
 import { onIframeHandshake } from "@/lib/apna-host/iframe-handshake";
 import CodeEditor from "@/components/molecules/CodeEditor";
 import { ReplyToRootNote } from "@/lib/nostr";
@@ -524,7 +525,9 @@ export default function EditorPage() {
     const stopHandshakeListener = onIframeHandshake(previewIframeEl, () => {
       if (initialSelectionsTimer) clearTimeout(initialSelectionsTimer);
       initialSelectionsTimer = setTimeout(() => {
-        instance?.emit("design:selections", getDesignSelections());
+        if (!instance) return;
+        instance.emit("design:selections", getDesignSelections());
+        emitHostThemeToInstance(instance);
       }, 250);
     });
 

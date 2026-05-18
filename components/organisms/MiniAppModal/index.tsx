@@ -44,6 +44,7 @@ import {
   getDesignSelections,
   subscribeToDesignSelections,
 } from "@/lib/apna-host/design-selections";
+import { emitHostThemeToInstance } from "@/lib/apna-host/theme-sync";
 import { usePermissionPromptQueue } from "@/lib/apna-host/use-permission-prompt-queue";
 import { onIframeHandshake } from "@/lib/apna-host/iframe-handshake";
 import type { PermissionPromptResult } from "@/lib/apna-host/permissions";
@@ -135,7 +136,9 @@ export default function MiniAppModal({
     const stopHandshakeListener = onIframeHandshake(iframeEl, () => {
       if (initialSelectionsTimer) clearTimeout(initialSelectionsTimer);
       initialSelectionsTimer = setTimeout(() => {
-        instance?.emit("design:selections", initialSelections);
+        if (!instance) return;
+        instance.emit("design:selections", initialSelections);
+        emitHostThemeToInstance(instance);
       }, 250);
     });
 
