@@ -176,6 +176,7 @@ function AppHomeContent() {
     messages: ChatMessage[];
     name: string;
   } | null>(null);
+  const closingActiveRouteAppIdRef = useRef<string | null>(null);
 
   const catalogApps = useMemo(
     () => buildCatalogApps(favoriteApps, generatedApps),
@@ -313,7 +314,24 @@ function AppHomeContent() {
     if (!workspaceRestored) return;
 
     const appId = searchParams.get("appId");
-    if (!appId || tabs.some((tab) => tab.appId === appId)) return;
+    const routeTabAlreadyOpen = appId
+      ? tabs.some((tab) => tab.appId === appId)
+      : false;
+
+    if (closingActiveRouteAppIdRef.current && closingActiveRouteAppIdRef.current !== appId) {
+      closingActiveRouteAppIdRef.current = null;
+    }
+
+    if (
+      appId &&
+      routeTabAlreadyOpen &&
+      closingActiveRouteAppIdRef.current === appId
+    ) {
+      closingActiveRouteAppIdRef.current = null;
+    }
+
+    if (!appId || routeTabAlreadyOpen) return;
+    if (closingActiveRouteAppIdRef.current === appId) return;
 
     const appUrl = searchParams.get("appUrl");
     const isGenerated = searchParams.get("isGenerated") === "true";
@@ -366,11 +384,18 @@ function AppHomeContent() {
   const closeTab = useCallback((tabId: string) => {
     if (tabId === HOME_TAB.id) return;
 
-    const closingActiveTab = activeTabId === tabId;
     const tabIndex = tabs.findIndex((tab) => tab.id === tabId);
+    if (tabIndex === -1) return;
+
+    const closingTab = tabs[tabIndex];
+    const closingActiveTab = activeTabId === tabId;
     const nextActiveTab = closingActiveTab
       ? tabs[tabIndex - 1] ?? HOME_TAB
       : activeTab;
+
+    if (closingActiveTab && closingTab.kind === "mini-app") {
+      closingActiveRouteAppIdRef.current = closingTab.appId;
+    }
 
     setTabs((current) => current.filter((tab) => tab.id !== tabId));
     if (closingActiveTab) {
@@ -678,32 +703,28 @@ function TabStrip({
         {visibleTabs.map((tab) => {
           const active = tab.id === activeTabId;
           return (
-            <button
+            <div
               key={tab.id}
-              type="button"
-              onClick={() => onActivate(tab.id)}
               className={cn(
-                "group mb-[-1px] mt-1 inline-flex h-[38px] min-w-[132px] max-w-[190px] items-center gap-2 rounded-t-[9px] border px-3 text-left text-[12.5px] transition-colors",
+                "group mb-[-1px] mt-1 inline-flex h-[38px] min-w-[132px] max-w-[190px] items-center gap-2 rounded-t-[9px] border pl-3 pr-2 text-[12.5px] transition-colors",
                 active
                   ? "border-ink/10 border-b-shell bg-shell text-ink"
                   : "border-transparent text-ink-3 hover:bg-surface-2"
               )}
             >
-              <TabGlyph tab={tab} />
-              <span className="min-w-0 flex-1 truncate font-medium">{tab.name}</span>
-              <span
-                role="button"
-                tabIndex={0}
+              <button
+                type="button"
+                onClick={() => onActivate(tab.id)}
+                className="flex h-full min-w-0 flex-1 items-center gap-2 text-left"
+              >
+                <TabGlyph tab={tab} />
+                <span className="min-w-0 flex-1 truncate font-medium">{tab.name}</span>
+              </button>
+              <button
+                type="button"
                 onClick={(event) => {
                   event.stopPropagation();
                   onClose(tab.id);
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    onClose(tab.id);
-                  }
                 }}
                 className={cn(
                   "grid h-5 w-5 place-items-center rounded text-ink-3 hover:bg-ink/5",
@@ -712,8 +733,8 @@ function TabStrip({
                 aria-label={`Close ${tab.name}`}
               >
                 <X className="h-3 w-3" />
-              </span>
-            </button>
+              </button>
+            </div>
           );
         })}
 
