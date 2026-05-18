@@ -7,6 +7,7 @@ import type {
 
 import { GetNpubProfile } from '@/lib/nostr/api';
 import { normalizePublicKey } from '@/lib/nostr/utils';
+import { invalidateUserProfile, primeUserMetadata } from '@/lib/nostr/profileCache';
 import { getActiveSigner } from '@/lib/apna-host/capabilities/nostr';
 
 async function toUserProfile(pubkeyOrNpub: string): Promise<UserProfile> {
@@ -39,6 +40,8 @@ async function publishProfile(metadata: UserMetadata): Promise<UserProfile> {
 
   const { pool, DEFAULT_RELAYS } = await import('@/lib/nostr/core');
   await Promise.any(pool.publish(DEFAULT_RELAYS, signedEvent));
+  invalidateUserProfile(pubkey);
+  primeUserMetadata(pubkey, metadata);
   return toUserProfile(pubkey);
 }
 

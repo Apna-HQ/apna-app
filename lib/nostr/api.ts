@@ -3,6 +3,7 @@ import * as nip19 from 'nostr-tools/nip19'
 import { filterTagValues, DEFAULT_RELAYS, fetchEventsFromRelays } from './core'
 import { normalizeNoteId, normalizePublicKey } from './utils'
 import { publishKind0, publishKind1, publishKind3, publishKind7, GenerateKeyPair } from './events'
+import { getCachedUserMetadata, getCachedUserProfile } from './profileCache'
 import * as crypto from 'crypto'
 
 const PROFILE_RELATION_LIMIT = 250
@@ -138,13 +139,17 @@ const getNprofile = async (npub: string) => {
     return nip19.nprofileEncode({ pubkey, relays })
 }
 
-export const GetNpubProfileMetadata = async (npub: string) => {
+const fetchNpubProfileMetadata = async (npub: string) => {
     const pubkey = normalizePublicKey(npub)
     const metadataContent = await fetchEventsFromRelays(DEFAULT_RELAYS, {
         kinds: [0],
         authors: [pubkey]
     }, true)
     return JSON.parse(metadataContent?.content || "{}")
+}
+
+export const GetNpubProfileMetadata = async (npub: string) => {
+    return getCachedUserMetadata(npub, () => fetchNpubProfileMetadata(npub))
 }
 
 export const GetNote = async (noteId: string) => {
@@ -174,7 +179,7 @@ const getFollowers = async (npub: string): Promise<string[]> => {
     return Array.from(new Set(followers.map((e: any) => e.pubkey)))
 }
 
-export const GetNpubProfile = async (npub: string) => {
+const fetchNpubProfile = async (npub: string) => {
     const [ nprofile, metadata, following, followers ] = await Promise.all([
         getNprofile(npub),
         GetNpubProfileMetadata(npub),
@@ -188,6 +193,10 @@ export const GetNpubProfile = async (npub: string) => {
         followers,
         following
     }
+}
+
+export const GetNpubProfile = async (npub: string) => {
+    return getCachedUserProfile(npub, () => fetchNpubProfile(npub))
 }
 
 export const GetNoteReactions = async (noteId: string, revalidate: boolean=false, since?: number) => {
