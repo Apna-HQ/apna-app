@@ -106,6 +106,23 @@ type CatalogApp = {
   defaultDisplay?: AppDefaultDisplay;
 };
 
+type RecentAppEntry = Pick<
+  CatalogApp,
+  | "id"
+  | "name"
+  | "hint"
+  | "source"
+  | "hosting"
+  | "appUrl"
+  | "glyph"
+  | "iconUrl"
+  | "tone"
+  | "description"
+  | "defaultDisplay"
+> & {
+  visitedAt: number;
+};
+
 type ActiveProfileSummary = {
   npub: string;
   alias?: string;
@@ -125,6 +142,8 @@ const HOME_TAB: WorkspaceTab = {
 const NEW_TAB_NAME = "New Tab";
 const WORKSPACE_STATE_STORAGE_KEY = "apna:workspace-tabs:v1";
 const WORKSPACE_STATE_VERSION = 1;
+const RECENT_APPS_STORAGE_KEY = "apna:recent-apps:v1";
+const RECENT_APPS_LIMIT = 12;
 const VALID_TAB_TONES: WorkspaceTab["tone"][] = [
   "amber",
   "orange",
@@ -168,6 +187,7 @@ function AppHomeContent() {
   const [profileManagerOpen, setProfileManagerOpen] = useState(false);
   const [tabSwitcherOpen, setTabSwitcherOpen] = useState(false);
   const [activeProfile, setActiveProfile] = useState<ActiveProfileSummary | null>(null);
+  const [recentAppEntries, setRecentAppEntries] = useState<RecentAppEntry[]>([]);
   const [generatedAppToRename, setGeneratedAppToRename] = useState<CatalogApp | null>(null);
   const [generatedAppToDelete, setGeneratedAppToDelete] = useState<CatalogApp | null>(null);
   const [generatedApp, setGeneratedApp] = useState<{
@@ -181,6 +201,11 @@ function AppHomeContent() {
   const catalogApps = useMemo(
     () => buildCatalogApps(favoriteApps, generatedApps),
     [favoriteApps, generatedApps]
+  );
+
+  const recentApps = useMemo(
+    () => resolveRecentApps(recentAppEntries, catalogApps),
+    [catalogApps, recentAppEntries]
   );
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? HOME_TAB;
@@ -206,6 +231,10 @@ function AppHomeContent() {
   useEffect(() => {
     loadActiveProfile();
   }, [loadActiveProfile]);
+
+  useEffect(() => {
+    setRecentAppEntries(readRecentAppEntries());
+  }, []);
 
   useEffect(() => {
     const restoredState = readPersistedWorkspaceState();
@@ -250,6 +279,14 @@ function AppHomeContent() {
     [router]
   );
 
+  const recordRecentApp = useCallback((app: CatalogApp) => {
+    setRecentAppEntries((current) => {
+      const nextEntries = pushRecentAppEntry(current, app);
+      writeRecentAppEntries(nextEntries);
+      return nextEntries;
+    });
+  }, []);
+
   const createNewTab = useCallback(() => {
     const nextTab = createBlankWorkspaceTab();
 
@@ -279,8 +316,9 @@ function AppHomeContent() {
       });
       setActiveTabId(nextTab.id);
       replaceWorkspaceUrlForTab(nextTab);
+      recordRecentApp(app);
     },
-    [replaceWorkspaceUrlForTab]
+    [recordRecentApp, replaceWorkspaceUrlForTab]
   );
 
   const openMiniAppUrlInTab = useCallback(
@@ -494,6 +532,7 @@ function AppHomeContent() {
             >
               <LauncherWorkspace
                 apps={catalogApps}
+                recentApps={recentApps}
                 openTabs={miniAppTabs}
                 loadingApps={favoritesLoading || generatedLoading}
                 onOpenApp={openCatalogApp}
@@ -523,6 +562,7 @@ function AppHomeContent() {
                 >
                   <NewTabWorkspace
                     apps={catalogApps}
+                    recentApps={recentApps}
                     loadingApps={favoritesLoading || generatedLoading}
                     onOpenApp={(app) => openCatalogApp(app, { replaceTabId: tab.id })}
                     onOpenUrl={(rawUrl) => openMiniAppUrlInTab(rawUrl, tab.id)}
@@ -809,17 +849,20 @@ function TabStrip({
 
 function NewTabWorkspace({
   apps,
+  recentApps,
   loadingApps,
   onOpenApp,
   onOpenUrl,
 }: {
   apps: CatalogApp[];
+  recentApps: CatalogApp[];
   loadingApps: boolean;
   onOpenApp: (app: CatalogApp) => void;
   onOpenUrl: (rawUrl: string) => string | null;
 }) {
   const [urlInput, setUrlInput] = useState("");
   const [urlError, setUrlError] = useState<string | null>(null);
+  const recent = recentApps.slice(0, 8);
   const installed = apps.slice(0, 18);
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -860,6 +903,8 @@ function NewTabWorkspace({
           <p className="mt-2 px-3 text-xs text-danger">{urlError}</p>
         )}
 
+        <RecentAppsSection apps={recent} onOpen={onOpenApp} />
+
         <section className="mt-7">
           <SectionLabel>Your Apps</SectionLabel>
           {loadingApps && installed.length === 0 ? (
@@ -889,6 +934,7 @@ function NewTabWorkspace({
 
 function LauncherWorkspace({
   apps,
+  recentApps,
   openTabs,
   loadingApps,
   onOpenApp,
@@ -905,6 +951,7 @@ function LauncherWorkspace({
   onPublishGenerated,
 }: {
   apps: CatalogApp[];
+  recentApps: CatalogApp[];
   openTabs: WorkspaceTab[];
   loadingApps: boolean;
   onOpenApp: (app: CatalogApp) => void;
@@ -949,6 +996,7 @@ function LauncherWorkspace({
   }, [apps, query]);
 
   const installed = filteredApps.slice(0, 18);
+  const recent = recentApps.slice(0, 8);
 
   return (
     <div className="grid h-full min-h-0 lg:grid-cols-[minmax(0,1fr)_340px]">
@@ -979,6 +1027,8 @@ function LauncherWorkspace({
             </kbd>
           </form>
         </section>
+
+        {!query && <RecentAppsSection apps={recent} onOpen={onOpenApp} />}
 
         <SectionLabel
           right={query ? `${filteredApps.length} match${filteredApps.length === 1 ? "" : "es"}` : undefined}
@@ -1087,6 +1137,62 @@ function LauncherWorkspace({
         <WidgetsPreview />
       </aside>
     </div>
+  );
+}
+
+function RecentAppsSection({
+  apps,
+  onOpen,
+}: {
+  apps: CatalogApp[];
+  onOpen: (app: CatalogApp) => void;
+}) {
+  return (
+    <section className="mb-7">
+      <SectionLabel>Recently Visited Apps</SectionLabel>
+      {apps.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-ink/15 bg-transparent p-4 text-sm text-ink-3">
+          No recently visited apps.
+        </div>
+      ) : (
+        <div className="grid grid-cols-4 gap-x-3 gap-y-4 sm:grid-cols-4 sm:gap-3 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8">
+          {apps.map((app) => (
+            <RecentAppOption
+              key={`${app.source}-${app.id}`}
+              app={app}
+              onOpen={onOpen}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function RecentAppOption({
+  app,
+  onOpen,
+}: {
+  app: CatalogApp;
+  onOpen: (app: CatalogApp) => void;
+}) {
+  const canOpen = app.hosting === "url" ? !!app.appUrl : !!app.htmlContent;
+
+  return (
+    <button
+      type="button"
+      disabled={!canOpen}
+      onClick={() => onOpen(app)}
+      className="flex min-h-[74px] min-w-0 flex-col items-center justify-start gap-1 rounded-lg p-1 text-center transition-colors hover:bg-surface/70 disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-[96px] sm:justify-center sm:border sm:border-ink/10 sm:bg-surface sm:p-2 sm:hover:border-ink/20"
+    >
+      <AppGlyph glyph={app.glyph} iconUrl={app.iconUrl} tone={app.tone} size="launcher" />
+      <span className="line-clamp-2 max-w-full text-[11px] font-semibold leading-tight text-ink sm:line-clamp-1 sm:text-sm">
+        {app.name}
+      </span>
+      <span className="hidden max-w-full truncate font-mono text-[10px] text-ink-3 sm:block sm:text-[11px]">
+        {app.hint}
+      </span>
+    </button>
   );
 }
 
@@ -1801,6 +1907,179 @@ function writePersistedWorkspaceState(tabs: WorkspaceTab[], activeTabId: string)
   } catch {
     // Workspace restore is a convenience; quota or privacy-mode failures should not block the shell.
   }
+}
+
+function readRecentAppEntries(): RecentAppEntry[] {
+  if (typeof window === "undefined") return [];
+
+  try {
+    const raw = window.localStorage.getItem(RECENT_APPS_STORAGE_KEY);
+    if (!raw) return [];
+
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+
+    const seen = new Set<string>();
+    return parsed.reduce<RecentAppEntry[]>((acc, value) => {
+      const entry = normalizeRecentAppEntry(value);
+      if (!entry) return acc;
+
+      const key = recentAppEntryKey(entry);
+      if (seen.has(key)) return acc;
+      seen.add(key);
+      acc.push(entry);
+      return acc;
+    }, []).slice(0, RECENT_APPS_LIMIT);
+  } catch {
+    return [];
+  }
+}
+
+function writeRecentAppEntries(entries: RecentAppEntry[]) {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.setItem(RECENT_APPS_STORAGE_KEY, JSON.stringify(entries));
+  } catch {
+    // Recent app history is a convenience and should never block app launches.
+  }
+}
+
+function pushRecentAppEntry(current: RecentAppEntry[], app: CatalogApp): RecentAppEntry[] {
+  const entry = catalogAppToRecentEntry(app);
+  const entryKey = recentAppEntryKey(entry);
+  const nextEntries = [
+    entry,
+    ...current.filter((item) => recentAppEntryKey(item) !== entryKey),
+  ];
+
+  return nextEntries.slice(0, RECENT_APPS_LIMIT);
+}
+
+function catalogAppToRecentEntry(app: CatalogApp): RecentAppEntry {
+  return {
+    id: app.id,
+    name: app.name,
+    hint: app.hint,
+    source: app.source,
+    hosting: app.hosting,
+    appUrl: app.appUrl,
+    glyph: app.glyph,
+    iconUrl: app.iconUrl,
+    tone: app.tone,
+    description: app.description,
+    defaultDisplay: app.defaultDisplay,
+    visitedAt: Date.now(),
+  };
+}
+
+function normalizeRecentAppEntry(value: unknown): RecentAppEntry | null {
+  const entry = value as Partial<RecentAppEntry>;
+  if (!entry || typeof entry !== "object") return null;
+
+  const id = typeof entry.id === "string" ? entry.id.trim() : "";
+  const name = typeof entry.name === "string" && entry.name.trim()
+    ? entry.name.trim()
+    : "Mini-app";
+  const hosting =
+    entry.hosting === "nostr" || entry.hosting === "blossom"
+      ? entry.hosting
+      : "url";
+  const appUrl = typeof entry.appUrl === "string" && entry.appUrl.trim()
+    ? entry.appUrl.trim()
+    : undefined;
+  if (!id && !appUrl) return null;
+  if (hosting === "url" && !appUrl) return null;
+
+  const source =
+    entry.source === "featured" ||
+    entry.source === "favorite" ||
+    entry.source === "generated" ||
+    entry.source === "explore"
+      ? entry.source
+      : "explore";
+  const tone = isWorkspaceTabTone(entry.tone) ? entry.tone : toneForName(name);
+  const visitedAt = typeof entry.visitedAt === "number" ? entry.visitedAt : 0;
+
+  return {
+    id: id || `url-${stableHash(appUrl ?? name)}`,
+    name,
+    hint: typeof entry.hint === "string" && entry.hint.trim()
+      ? entry.hint.trim()
+      : "recent mini-app",
+    source,
+    hosting,
+    appUrl,
+    glyph: typeof entry.glyph === "string" && entry.glyph.trim()
+      ? entry.glyph.trim().slice(0, 2)
+      : name.charAt(0),
+    iconUrl: typeof entry.iconUrl === "string" ? entry.iconUrl : undefined,
+    tone,
+    description: typeof entry.description === "string" ? entry.description : undefined,
+    defaultDisplay: entry.defaultDisplay === "fullscreen" ? "fullscreen" : "tab",
+    visitedAt,
+  };
+}
+
+function resolveRecentApps(
+  entries: RecentAppEntry[],
+  catalogApps: CatalogApp[]
+): CatalogApp[] {
+  const catalogById = new Map(catalogApps.map((app) => [app.id, app]));
+  const catalogByUrl = new Map<string, CatalogApp>();
+  const seen = new Set<string>();
+
+  catalogApps.forEach((app) => {
+    if (!app.appUrl) return;
+    const normalizedUrl = normalizeMiniAppUrl(app.appUrl);
+    if (normalizedUrl) catalogByUrl.set(normalizedUrl, app);
+  });
+
+  return entries.reduce<CatalogApp[]>((acc, entry) => {
+    const catalogApp =
+      catalogById.get(entry.id) ??
+      (entry.appUrl ? catalogByUrl.get(normalizeMiniAppUrl(entry.appUrl) ?? entry.appUrl) : undefined) ??
+      recentEntryToCatalogApp(entry);
+    const key = recentCatalogAppKey(catalogApp);
+
+    if (seen.has(key)) return acc;
+    if (catalogApp.hosting === "url" && !catalogApp.appUrl) return acc;
+    if (catalogApp.hosting !== "url" && !catalogApp.htmlContent) return acc;
+
+    seen.add(key);
+    acc.push(catalogApp);
+    return acc;
+  }, []);
+}
+
+function recentEntryToCatalogApp(entry: RecentAppEntry): CatalogApp {
+  return {
+    id: entry.id,
+    name: entry.name,
+    hint: entry.hint,
+    source: entry.source,
+    hosting: entry.hosting,
+    appUrl: entry.appUrl,
+    glyph: entry.glyph,
+    iconUrl: entry.iconUrl,
+    tone: entry.tone,
+    description: entry.description,
+    defaultDisplay: entry.defaultDisplay,
+  };
+}
+
+function recentAppEntryKey(entry: RecentAppEntry) {
+  if (entry.appUrl) {
+    return `url:${normalizeMiniAppUrl(entry.appUrl) ?? entry.appUrl}`;
+  }
+  return `id:${entry.id}`;
+}
+
+function recentCatalogAppKey(app: CatalogApp) {
+  if (app.appUrl) {
+    return `url:${normalizeMiniAppUrl(app.appUrl) ?? app.appUrl}`;
+  }
+  return `id:${app.id}`;
 }
 
 function normalizePersistedWorkspaceTab(value: unknown): WorkspaceTab | null {

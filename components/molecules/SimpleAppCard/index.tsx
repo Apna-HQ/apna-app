@@ -1,6 +1,6 @@
 "use client"
 import type { AppDetails } from '@/lib/hooks/useApps';
-import { getFaviconUrl } from '@/lib/utils';
+import { getFaviconProxyUrl } from '@/lib/utils';
 
 interface SimpleAppCardProps {
   app: AppDetails;
@@ -8,7 +8,7 @@ interface SimpleAppCardProps {
 }
 
 export function SimpleAppCard({ app, onSelect }: SimpleAppCardProps) {
-  const faviconUrl = app.appURL ? getFaviconUrl(app.appURL) : null;
+  const faviconUrl = app.appURL ? getFaviconProxyUrl(app.appURL) : null;
 
   return (
     <button

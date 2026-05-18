@@ -214,6 +214,10 @@ export function getFaviconUrl(appUrl: string): string {
   }
 }
 
+export function getFaviconProxyUrl(appUrl: string): string {
+  return `/api/favicon?appUrl=${encodeURIComponent(appUrl)}`;
+}
+
 // Remove all user profiles from localStorage
 export function removeAllUserProfilesFromLocalStorage(): void {
   if (typeof window === 'undefined') return;

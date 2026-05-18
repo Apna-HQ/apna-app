@@ -1,5 +1,5 @@
 "use client"
-import { getFaviconUrl } from '@/lib/utils';
+import { getFaviconProxyUrl } from '@/lib/utils';
 import { Globe } from "lucide-react";
 
 interface AppIconProps {
@@ -12,7 +12,7 @@ interface AppIconProps {
 }
 
 export function AppIcon({ appName, appURL = '', appId, isGeneratedApp = false, isPublished = false, onSelect }: AppIconProps) {
-  const faviconUrl = appURL ? getFaviconUrl(appURL) : null;
+  const faviconUrl = appURL ? getFaviconProxyUrl(appURL) : null;
   
   // Trim text to roughly fit two lines (about 24 characters)
   const trimText = (text: string) => {

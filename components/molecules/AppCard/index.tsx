@@ -2,7 +2,7 @@ import { AuthorInfo } from '@/components/atoms/AuthorInfo';
 import { RatingDisplay } from '@/components/molecules/RatingDisplay';
 import { FavoriteButton } from '@/components/molecules/FavoriteButton';
 import { Button } from '@/components/ui/button';
-import { getFaviconUrl } from '@/lib/utils';
+import { getFaviconProxyUrl } from '@/lib/utils';
 import type { AppDetails } from '@/lib/hooks/useApps';
 
 interface AppCardProps {
@@ -13,7 +13,7 @@ interface AppCardProps {
 }
 
 export function AppCard({ app, selected, onSelect, showEditButton }: AppCardProps) {
-  const faviconUrl = app.appURL ? getFaviconUrl(app.appURL) : null;
+  const faviconUrl = app.appURL ? getFaviconProxyUrl(app.appURL) : null;
 
   return (
     <div className="w-full group relative">
