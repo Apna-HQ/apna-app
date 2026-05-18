@@ -82,7 +82,7 @@ type WorkspaceTab = {
   glyph: string;
   iconUrl?: string;
   tone: "amber" | "orange" | "green" | "blue" | "violet" | "plain";
-  kind: "home" | "mini-app";
+  kind: "home" | "new" | "mini-app";
   hosting?: "url" | "nostr";
   appUrl?: string | null;
   htmlContent?: string | null;
@@ -122,6 +122,7 @@ const HOME_TAB: WorkspaceTab = {
   kind: "home",
 };
 
+const NEW_TAB_NAME = "New Tab";
 const WORKSPACE_STATE_STORAGE_KEY = "apna:workspace-tabs:v1";
 const WORKSPACE_STATE_VERSION = 1;
 const VALID_TAB_TONES: WorkspaceTab["tone"][] = [
@@ -182,7 +183,8 @@ function AppHomeContent() {
   );
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? HOME_TAB;
-  const openTabs = tabs.filter((tab) => tab.kind === "mini-app");
+  const miniAppTabs = tabs.filter((tab) => tab.kind === "mini-app");
+  const switchableTabs = tabs.filter((tab) => tab.kind !== "home");
 
   const loadActiveProfile = useCallback(() => {
     const keyPair = getKeyPairFromLocalStorage();
@@ -247,18 +249,55 @@ function AppHomeContent() {
     [router]
   );
 
+  const createNewTab = useCallback(() => {
+    const nextTab = createBlankWorkspaceTab();
+
+    setTabs((current) => [...current, nextTab]);
+    setActiveTabId(nextTab.id);
+    replaceWorkspaceUrlForTab(nextTab);
+  }, [replaceWorkspaceUrlForTab]);
+
   const openCatalogApp = useCallback(
-    (app: CatalogApp) => {
+    (app: CatalogApp, options: { replaceTabId?: string } = {}) => {
       const nextTab = catalogAppToWorkspaceTab(app);
 
       setTabs((current) => {
-        if (current.some((tab) => tab.id === nextTab.id)) return current;
+        const existingTab = current.find((tab) => tab.id === nextTab.id);
+        if (existingTab) {
+          if (options.replaceTabId && options.replaceTabId !== existingTab.id) {
+            return current.filter((tab) => tab.id !== options.replaceTabId);
+          }
+          return current;
+        }
+
+        if (options.replaceTabId && current.some((tab) => tab.id === options.replaceTabId)) {
+          return current.map((tab) => (tab.id === options.replaceTabId ? nextTab : tab));
+        }
+
         return [...current, nextTab];
       });
       setActiveTabId(nextTab.id);
       replaceWorkspaceUrlForTab(nextTab);
     },
     [replaceWorkspaceUrlForTab]
+  );
+
+  const openMiniAppUrlInTab = useCallback(
+    (rawUrl: string, replaceTabId: string) => {
+      const normalizedUrl = normalizeMiniAppUrl(rawUrl);
+      if (!normalizedUrl) return "Enter a valid http(s) URL.";
+
+      const matchingCatalogApp = catalogApps.find((app) => {
+        if (app.hosting !== "url" || !app.appUrl) return false;
+        return normalizeMiniAppUrl(app.appUrl) === normalizedUrl;
+      });
+
+      openCatalogApp(matchingCatalogApp ?? urlToCatalogApp(normalizedUrl), {
+        replaceTabId,
+      });
+      return null;
+    },
+    [catalogApps, openCatalogApp]
   );
 
   const activateTab = useCallback(
@@ -407,24 +446,19 @@ function AppHomeContent() {
     <>
       <div className="h-[100dvh] bg-shell text-ink">
         <section className="flex h-[100dvh] w-full flex-col overflow-hidden bg-shell">
-          <ShellHeader
-            activeTab={activeTab}
+          <TabStrip
+            tabs={tabs}
+            activeTabId={activeTabId}
             activeProfile={activeProfile}
-            openTabsCount={openTabs.length}
+            switchableTabsCount={switchableTabs.length}
+            onActivate={activateTab}
+            onClose={closeTab}
+            onCreateTab={createNewTab}
             onGoHome={goHome}
             onOpenTabSwitcher={() => setTabSwitcherOpen(true)}
             onOpenProfile={() => setProfileManagerOpen(true)}
             onOpenSettings={() => setSettingsOpen(true)}
           />
-          {openTabs.length > 0 && (
-            <TabStrip
-              tabs={openTabs}
-              activeTabId={activeTabId}
-              onActivate={activateTab}
-              onClose={closeTab}
-              onGoHome={goHome}
-            />
-          )}
 
           <div className="min-h-0 flex-1 overflow-hidden bg-shell">
             <div
@@ -435,7 +469,7 @@ function AppHomeContent() {
             >
               <LauncherWorkspace
                 apps={catalogApps}
-                openTabs={openTabs}
+                openTabs={miniAppTabs}
                 loadingApps={favoritesLoading || generatedLoading}
                 onOpenApp={openCatalogApp}
                 onActivateTab={activateTab}
@@ -452,7 +486,26 @@ function AppHomeContent() {
               />
             </div>
 
-            {openTabs.map((tab) => (
+            {switchableTabs
+              .filter((tab) => tab.kind === "new")
+              .map((tab) => (
+                <div
+                  key={tab.id}
+                  className={cn(
+                    "h-full min-h-0",
+                    activeTabId === tab.id ? "block" : "hidden"
+                  )}
+                >
+                  <NewTabWorkspace
+                    apps={catalogApps}
+                    loadingApps={favoritesLoading || generatedLoading}
+                    onOpenApp={(app) => openCatalogApp(app, { replaceTabId: tab.id })}
+                    onOpenUrl={(rawUrl) => openMiniAppUrlInTab(rawUrl, tab.id)}
+                  />
+                </div>
+              ))}
+
+            {miniAppTabs.map((tab) => (
               <div
                 key={tab.id}
                 className={cn(
@@ -474,7 +527,13 @@ function AppHomeContent() {
           </div>
 
           <footer className="hidden h-7 items-center justify-between border-t border-ink/10 bg-chrome px-4 font-mono text-[11px] text-ink-3 md:flex">
-            <span>{activeTab.kind === "home" ? "launcher ready" : `${activeTab.name.toLowerCase()} running`}</span>
+            <span>
+              {activeTab.kind === "home"
+                ? "launcher ready"
+                : activeTab.kind === "new"
+                  ? "new tab ready"
+                  : `${activeTab.name.toLowerCase()} running`}
+            </span>
             <span className="flex items-center gap-4">
               <span>permissions broker active</span>
               <span className="inline-flex items-center gap-1.5">
@@ -509,7 +568,7 @@ function AppHomeContent() {
       <TabSwitcherSheet
         open={tabSwitcherOpen}
         onOpenChange={setTabSwitcherOpen}
-        openTabs={openTabs}
+        tabs={switchableTabs}
         activeTabId={activeTabId}
         onActivateTab={(id) => {
           activateTab(id);
@@ -569,57 +628,116 @@ function AppHomeContent() {
   );
 }
 
-function ShellHeader({
-  activeTab,
+function TabStrip({
+  tabs,
+  activeTabId,
   activeProfile,
-  openTabsCount,
+  switchableTabsCount,
+  onActivate,
+  onClose,
+  onCreateTab,
   onGoHome,
   onOpenTabSwitcher,
   onOpenProfile,
   onOpenSettings,
 }: {
-  activeTab: WorkspaceTab;
+  tabs: WorkspaceTab[];
+  activeTabId: string;
   activeProfile: ActiveProfileSummary | null;
-  openTabsCount: number;
+  switchableTabsCount: number;
+  onActivate: (tabId: string) => void;
+  onClose: (tabId: string) => void;
+  onCreateTab: () => void;
   onGoHome: () => void;
   onOpenTabSwitcher: () => void;
   onOpenProfile: () => void;
   onOpenSettings: () => void;
 }) {
-  const showTabSwitcher = openTabsCount >= 2;
-  const isHome = activeTab.kind === "home";
+  const showTabSwitcher = switchableTabsCount >= 2;
+  const visibleTabs = tabs.filter((tab) => tab.kind !== "home");
+  const homeActive = activeTabId === HOME_TAB.id;
 
   return (
-    <header className="grid h-10 shrink-0 grid-cols-[104px_1fr_130px] items-center gap-2 border-b border-ink/10 bg-chrome px-3 md:grid-cols-[160px_1fr_260px] md:px-4">
-      <div className="flex min-w-0 items-center gap-2">
-        <ApnaLogo variant="wordmark" size={18} className="text-ink-2" />
-      </div>
-      <div className="flex min-w-0 items-center justify-center gap-1.5">
+    <div className="flex h-[46px] shrink-0 items-end border-b border-ink/10 bg-chrome px-2">
+      <div className="flex min-w-0 flex-1 items-end gap-px overflow-x-auto no-scrollbar">
         <button
           type="button"
           onClick={onGoHome}
           aria-label="Home"
-          aria-current={isHome ? "page" : undefined}
+          aria-current={homeActive ? "page" : undefined}
           className={cn(
-            "grid h-7 w-7 shrink-0 place-items-center rounded-md transition-colors",
-            isHome
-              ? "bg-surface text-ink shadow-sm"
-              : "text-ink-3 hover:bg-surface-2 hover:text-ink-2"
+            "mb-[-1px] mt-1 grid h-[38px] w-11 shrink-0 place-items-center rounded-t-[9px] border transition-colors",
+            homeActive
+              ? "border-ink/10 border-b-shell bg-shell text-ink"
+              : "border-transparent text-ink-3 hover:bg-surface-2 hover:text-ink-2"
           )}
         >
           <HomeIcon className="h-4 w-4" />
         </button>
-        <span className="mx-0 flex h-7 min-w-0 max-w-xl flex-1 items-center justify-center gap-1.5 truncate rounded-full border border-ink/10 bg-shell px-3 text-xs font-medium text-ink-3">
-          <Globe2 className="h-3.5 w-3.5 shrink-0" />
-          <span className="truncate">apna://{activeTab.appId}</span>
-        </span>
+
+        {visibleTabs.map((tab) => {
+          const active = tab.id === activeTabId;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => onActivate(tab.id)}
+              className={cn(
+                "group mb-[-1px] mt-1 inline-flex h-[38px] min-w-[132px] max-w-[190px] items-center gap-2 rounded-t-[9px] border px-3 text-left text-[12.5px] transition-colors",
+                active
+                  ? "border-ink/10 border-b-shell bg-shell text-ink"
+                  : "border-transparent text-ink-3 hover:bg-surface-2"
+              )}
+            >
+              <TabGlyph tab={tab} />
+              <span className="min-w-0 flex-1 truncate font-medium">{tab.name}</span>
+              <span
+                role="button"
+                tabIndex={0}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onClose(tab.id);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    onClose(tab.id);
+                  }
+                }}
+                className={cn(
+                  "grid h-5 w-5 place-items-center rounded text-ink-3 hover:bg-ink/5",
+                  active ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                )}
+                aria-label={`Close ${tab.name}`}
+              >
+                <X className="h-3 w-3" />
+              </span>
+            </button>
+          );
+        })}
+
+        <button
+          type="button"
+          onClick={onCreateTab}
+          className="mb-1 ml-1 grid h-8 w-8 shrink-0 place-items-center rounded-md text-ink-3 hover:bg-surface-2"
+          aria-label="New tab"
+        >
+          <Plus className="h-4 w-4" />
+        </button>
+        <span className="min-w-3 flex-1" />
       </div>
-      <div className="flex items-center justify-end gap-1.5 text-ink-3">
+
+      <div className="mb-2 ml-2 flex shrink-0 items-center gap-1.5 text-ink-3">
+        <span className="hidden items-center gap-1 rounded-full border border-ink/10 bg-shell px-2 py-1 font-mono text-[11px] md:inline-flex">
+          <span className="h-1.5 w-1.5 rounded-full bg-apna-green" />
+          4 relays
+        </span>
         <button
           type="button"
           onClick={onOpenProfile}
           aria-label="Manage profiles"
-          className="hidden h-7 max-w-[128px] items-center gap-1.5 rounded-md border border-ink/10 bg-surface px-2 text-xs font-medium text-ink-2 hover:bg-surface-2 md:inline-flex"
+          className="hidden h-7 max-w-[132px] items-center gap-1.5 rounded-md border border-ink/10 bg-surface px-2 text-xs font-medium text-ink-2 hover:bg-surface-2 md:inline-flex"
         >
           <UserRound className="h-3.5 w-3.5 shrink-0 text-amber-strong" />
           <span className="truncate">
@@ -630,12 +748,12 @@ function ShellHeader({
           <button
             type="button"
             onClick={onOpenTabSwitcher}
-            aria-label={`Switch tab (${openTabsCount} open)`}
+            aria-label={`Switch tab (${switchableTabsCount} open)`}
             className="relative grid h-7 w-7 place-items-center rounded-md hover:bg-surface-2"
           >
             <Layers className="h-4 w-4" />
             <span className="absolute -right-1 -top-1 grid h-3.5 min-w-[14px] place-items-center rounded-full bg-amber-strong px-1 text-[9px] font-semibold text-white">
-              {openTabsCount}
+              {switchableTabsCount}
             </span>
           </button>
         ) : (
@@ -664,81 +782,86 @@ function ShellHeader({
           <Settings className="h-4 w-4" />
         </button>
       </div>
-    </header>
+    </div>
   );
 }
 
-function TabStrip({
-  tabs,
-  activeTabId,
-  onActivate,
-  onClose,
-  onGoHome,
+function NewTabWorkspace({
+  apps,
+  loadingApps,
+  onOpenApp,
+  onOpenUrl,
 }: {
-  tabs: WorkspaceTab[];
-  activeTabId: string;
-  onActivate: (tabId: string) => void;
-  onClose: (tabId: string) => void;
-  onGoHome: () => void;
+  apps: CatalogApp[];
+  loadingApps: boolean;
+  onOpenApp: (app: CatalogApp) => void;
+  onOpenUrl: (rawUrl: string) => string | null;
 }) {
+  const [urlInput, setUrlInput] = useState("");
+  const [urlError, setUrlError] = useState<string | null>(null);
+  const installed = apps.slice(0, 18);
+
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const error = onOpenUrl(urlInput);
+    setUrlError(error);
+  };
+
   return (
-    <div className="flex h-[46px] shrink-0 items-end gap-px overflow-x-auto border-b border-ink/10 bg-chrome px-2 no-scrollbar">
-      {tabs.map((tab) => {
-        const active = tab.id === activeTabId;
-        return (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => onActivate(tab.id)}
-            className={cn(
-              "group mb-[-1px] mt-1 inline-flex h-[38px] min-w-[132px] max-w-[190px] items-center gap-2 rounded-t-[9px] border px-3 text-left text-[12.5px] transition-colors",
-              active
-                ? "border-ink/10 border-b-shell bg-shell text-ink"
-                : "border-transparent text-ink-3 hover:bg-surface-2"
-            )}
+    <div className="h-full min-h-0 overflow-auto bg-shell px-4 py-5 md:px-10 md:py-8">
+      <main className="mx-auto max-w-4xl">
+        <form
+          onSubmit={handleSubmit}
+          className="flex max-w-2xl items-center gap-2 rounded-full border border-ink/10 bg-surface px-3 py-2 text-sm text-ink focus-within:border-amber-strong/40 focus-within:ring-2 focus-within:ring-amber-strong/15"
+        >
+          <Globe2 className="h-4 w-4 shrink-0 text-ink-3" />
+          <input
+            type="text"
+            inputMode="url"
+            value={urlInput}
+            onChange={(event) => {
+              setUrlInput(event.target.value);
+              if (urlError) setUrlError(null);
+            }}
+            placeholder="https://mini-app.example"
+            aria-label="Mini-app URL"
+            className="min-w-0 flex-1 bg-transparent text-sm text-ink placeholder:text-ink-3 focus:outline-none"
+          />
+          <Button
+            type="submit"
+            className="h-8 shrink-0 rounded-full bg-ink px-3 text-xs font-semibold text-shell hover:bg-ink-2"
           >
-            <AppGlyph glyph={tab.glyph} iconUrl={tab.iconUrl} tone={tab.tone} size="sm" />
-            <span className="min-w-0 flex-1 truncate font-medium">{tab.name}</span>
-            <span
-              role="button"
-              tabIndex={0}
-              onClick={(event) => {
-                event.stopPropagation();
-                onClose(tab.id);
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  onClose(tab.id);
-                }
-              }}
-              className={cn(
-                "grid h-5 w-5 place-items-center rounded text-ink-3 hover:bg-ink/5",
-                active ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-              )}
-              aria-label={`Close ${tab.name}`}
-            >
-              <X className="h-3 w-3" />
-            </span>
-          </button>
-        );
-      })}
-      <button
-        type="button"
-        onClick={onGoHome}
-        className="mb-1 ml-1 grid h-8 w-8 shrink-0 place-items-center rounded-md text-ink-3 hover:bg-surface-2"
-        aria-label="Open launcher"
-      >
-        <Plus className="h-4 w-4" />
-      </button>
-      <span className="min-w-3 flex-1" />
-      <div className="mb-2 hidden shrink-0 items-center gap-2 text-xs text-ink-3 md:flex">
-        <span className="inline-flex items-center gap-1 rounded-full border border-ink/10 bg-shell px-2 py-1 font-mono text-[11px]">
-          <span className="h-1.5 w-1.5 rounded-full bg-apna-green" />
-          4 relays
-        </span>
-      </div>
+            <ArrowUpRight className="mr-1.5 h-3.5 w-3.5" />
+            Open
+          </Button>
+        </form>
+        {urlError && (
+          <p className="mt-2 px-3 text-xs text-danger">{urlError}</p>
+        )}
+
+        <section className="mt-7">
+          <SectionLabel>Your Apps</SectionLabel>
+          {loadingApps && installed.length === 0 ? (
+            <div className="rounded-lg border border-ink/10 bg-surface p-6 text-sm text-ink-3">
+              Loading apps...
+            </div>
+          ) : installed.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-ink/15 bg-transparent p-6 text-sm text-ink-3">
+              No apps available.
+            </div>
+          ) : (
+            <div className="grid grid-cols-4 gap-x-3 gap-y-4 sm:grid-cols-4 sm:gap-3 md:grid-cols-5 lg:grid-cols-6">
+              {installed.map((app) => (
+                <NewTabAppOption
+                  key={`${app.source}-${app.id}`}
+                  app={app}
+                  onOpen={onOpenApp}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      </main>
     </div>
   );
 }
@@ -943,6 +1066,33 @@ function LauncherWorkspace({
         <WidgetsPreview />
       </aside>
     </div>
+  );
+}
+
+function NewTabAppOption({
+  app,
+  onOpen,
+}: {
+  app: CatalogApp;
+  onOpen: (app: CatalogApp) => void;
+}) {
+  const canOpen = app.hosting === "url" ? !!app.appUrl : !!app.htmlContent;
+
+  return (
+    <button
+      type="button"
+      disabled={!canOpen}
+      onClick={() => onOpen(app)}
+      className="flex min-h-[74px] min-w-0 flex-col items-center justify-start gap-1 rounded-lg p-1 text-center transition-colors hover:bg-surface/70 disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-[104px] sm:justify-center sm:border sm:border-ink/10 sm:bg-surface sm:p-2 sm:hover:border-ink/20"
+    >
+      <AppGlyph glyph={app.glyph} iconUrl={app.iconUrl} tone={app.tone} size="launcher" />
+      <span className="line-clamp-2 max-w-full text-[11px] font-semibold leading-tight text-ink sm:line-clamp-1 sm:text-sm">
+        {app.name}
+      </span>
+      <span className="hidden max-w-full truncate font-mono text-[10px] text-ink-3 sm:block sm:text-[11px]">
+        {app.hint}
+      </span>
+    </button>
   );
 }
 
@@ -1176,7 +1326,7 @@ function PermissionsWidget({ onOpenSettings }: { onOpenSettings: () => void }) {
 function TabSwitcherSheet({
   open,
   onOpenChange,
-  openTabs,
+  tabs,
   activeTabId,
   onActivateTab,
   onCloseTab,
@@ -1184,7 +1334,7 @@ function TabSwitcherSheet({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  openTabs: WorkspaceTab[];
+  tabs: WorkspaceTab[];
   activeTabId: string;
   onActivateTab: (tabId: string) => void;
   onCloseTab: (tabId: string) => void;
@@ -1203,7 +1353,7 @@ function TabSwitcherSheet({
               Open tabs
             </SheetTitle>
             <SheetDescription className="text-ink-3">
-              {openTabs.length} mini-app{openTabs.length === 1 ? "" : "s"} running.
+              {tabs.length} open tab{tabs.length === 1 ? "" : "s"}.
             </SheetDescription>
           </SheetHeader>
         </div>
@@ -1222,7 +1372,7 @@ function TabSwitcherSheet({
               <p className="truncate font-mono text-[11px] text-ink-3">launcher + widgets</p>
             </div>
           </button>
-          {openTabs.map((tab) => {
+          {tabs.map((tab) => {
             const active = tab.id === activeTabId;
             return (
               <div
@@ -1239,11 +1389,15 @@ function TabSwitcherSheet({
                   onClick={() => onActivateTab(tab.id)}
                   className="flex min-w-0 flex-1 items-center gap-3 text-left"
                 >
-                  <AppGlyph glyph={tab.glyph} iconUrl={tab.iconUrl} tone={tab.tone} />
+                  <TabGlyph tab={tab} />
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-ink">{tab.name}</p>
                     <p className="truncate font-mono text-[11px] text-ink-3">
-                      {active ? "currently active" : "running · tap to switch"}
+                      {active
+                        ? "currently active"
+                        : tab.kind === "new"
+                          ? "ready · tap to switch"
+                          : "running · tap to switch"}
                     </p>
                   </div>
                 </button>
@@ -1424,6 +1578,22 @@ function WidgetRow({
   );
 }
 
+function TabGlyph({ tab }: { tab: WorkspaceTab }) {
+  if (tab.kind === "new") {
+    return <NewTabGlyph />;
+  }
+
+  return <AppGlyph glyph={tab.glyph} iconUrl={tab.iconUrl} tone={tab.tone} size="sm" />;
+}
+
+function NewTabGlyph() {
+  return (
+    <span className="grid h-5 w-5 shrink-0 place-items-center rounded border border-ink/10 bg-shell">
+      <ApnaLogo variant="mark" size={13} className="grayscale opacity-50" />
+    </span>
+  );
+}
+
 function AppGlyph({
   glyph,
   iconUrl,
@@ -1520,8 +1690,31 @@ function catalogAppToWorkspaceTab(app: CatalogApp): WorkspaceTab {
   };
 }
 
+function createBlankWorkspaceTab(): WorkspaceTab {
+  return blankWorkspaceTab(createWorkspaceTabId("new-tab"));
+}
+
+function blankWorkspaceTab(id: string): WorkspaceTab {
+  return {
+    id,
+    appId: id,
+    name: NEW_TAB_NAME,
+    glyph: "A",
+    tone: "plain",
+    kind: "new",
+  };
+}
+
+function createWorkspaceTabId(prefix: string) {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return `${prefix}-${crypto.randomUUID()}`;
+  }
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 function workspaceUrlForTab(tab: WorkspaceTab) {
   if (tab.kind === "home") return "/app";
+  if (tab.kind === "new") return `/app?newTab=${encodeURIComponent(tab.id)}`;
 
   const params = new URLSearchParams();
   params.set("appId", tab.appId);
@@ -1570,15 +1763,15 @@ function writePersistedWorkspaceState(tabs: WorkspaceTab[], activeTabId: string)
   if (typeof window === "undefined") return;
 
   try {
-    const miniAppTabs = tabs
-      .filter((tab) => tab.kind === "mini-app")
+    const persistedTabs = tabs
+      .filter((tab) => tab.kind !== "home")
       .map(serializeWorkspaceTab);
     const persistedActiveTabId = tabs.some((tab) => tab.id === activeTabId)
       ? activeTabId
       : HOME_TAB.id;
     const state: PersistedWorkspaceState = {
       version: WORKSPACE_STATE_VERSION,
-      tabs: miniAppTabs,
+      tabs: persistedTabs,
       activeTabId: persistedActiveTabId,
       updatedAt: Date.now(),
     };
@@ -1592,6 +1785,14 @@ function writePersistedWorkspaceState(tabs: WorkspaceTab[], activeTabId: string)
 function normalizePersistedWorkspaceTab(value: unknown): WorkspaceTab | null {
   const tab = value as Partial<WorkspaceTab>;
   if (!tab || typeof tab !== "object") return null;
+
+  if (tab.kind === "new") {
+    const id =
+      typeof tab.id === "string" && tab.id.trim()
+        ? tab.id.trim()
+        : createWorkspaceTabId("new-tab");
+    return blankWorkspaceTab(id);
+  }
 
   const appId = typeof tab.appId === "string" ? tab.appId.trim() : "";
   if (!appId || appId === HOME_TAB.appId) return null;
@@ -1630,6 +1831,10 @@ function normalizePersistedWorkspaceTab(value: unknown): WorkspaceTab | null {
 }
 
 function serializeWorkspaceTab(tab: WorkspaceTab): WorkspaceTab {
+  if (tab.kind === "new") {
+    return blankWorkspaceTab(tab.id);
+  }
+
   return {
     id: tab.id,
     appId: tab.appId,
@@ -1756,6 +1961,52 @@ function launchPayloadToCatalog(app: ShellLaunchPayload): CatalogApp {
     description: app.description,
     defaultDisplay: app.defaultDisplay ?? "tab",
   };
+}
+
+function normalizeMiniAppUrl(rawUrl: string) {
+  const trimmed = rawUrl.trim();
+  if (!trimmed) return null;
+
+  const withProtocol = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)
+    ? trimmed
+    : `https://${trimmed}`;
+
+  try {
+    const url = new URL(withProtocol);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+function urlToCatalogApp(appUrl: string): CatalogApp {
+  const url = new URL(appUrl);
+  const hostname = url.hostname.replace(/^www\./, "");
+  const name = hostname || "Mini-app";
+  const path = url.pathname && url.pathname !== "/" ? url.pathname : "";
+
+  return {
+    id: `url-${stableHash(appUrl)}`,
+    name,
+    hint: `${url.host}${path}`,
+    source: "explore",
+    hosting: "url",
+    appUrl,
+    glyph: name.charAt(0) || "M",
+    iconUrl: faviconUrlForAppUrl(appUrl),
+    tone: toneForName(name),
+    description: "URL mini-app",
+    defaultDisplay: "tab",
+  };
+}
+
+function stableHash(value: string) {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) | 0;
+  }
+  return Math.abs(hash).toString(36);
 }
 
 function shortKey(value: string) {

@@ -32,5 +32,5 @@ capabilities to them via `@apna/sdk`.
 - `npm run build` / `npm run start` — production build & serve
 - `npm run lint` — Next.js lint
 
-> Dev servers run under PM2 — see workspace notes before starting another instance.
+> Always run `pm2 list` before starting a dev server. If `apna-host-dev` is already online, use that running PM2 service instead of starting another `npm run dev`/`next dev` process.
 > After changing code, run `graphify update .` to keep the knowledge graph current.
