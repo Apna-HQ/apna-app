@@ -71,6 +71,7 @@ import { miniAppInstanceManager } from "@/lib/apna-host/instance-manager";
 import { useGeneratedApps } from "@/lib/contexts/GeneratedAppsContext";
 import { useFavorites } from "@/lib/hooks/useFavorites";
 import { useProfile } from "@/lib/hooks/useProfile";
+import { DEFAULT_RELAYS } from "@/lib/constants";
 import { cn, getKeyPairFromLocalStorage, getUserProfileByNpub } from "@/lib/utils";
 import { deriveHosting, type AppDefaultDisplay, type AppDetails, type AppHosting } from "@/lib/types/apps";
 import { ChatMessage, GeneratedApp } from "@/lib/generatedAppsDB";
@@ -721,9 +722,39 @@ function TabStrip({
   const showTabSwitcher = switchableTabsCount >= 2;
   const visibleTabs = tabs.filter((tab) => tab.kind !== "home");
   const homeActive = activeTabId === HOME_TAB.id;
+  const relayDetailsRef = useRef<HTMLDivElement>(null);
+  const [relayDetailsOpen, setRelayDetailsOpen] = useState(false);
+
+  useEffect(() => {
+    if (!relayDetailsOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (
+        target instanceof Node &&
+        relayDetailsRef.current?.contains(target)
+      ) {
+        return;
+      }
+
+      setRelayDetailsOpen(false);
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setRelayDetailsOpen(false);
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [relayDetailsOpen]);
 
   return (
-    <div className="flex h-[46px] shrink-0 items-end border-b border-ink/10 bg-chrome px-2">
+    <div className="relative z-30 flex h-[46px] shrink-0 items-end border-b border-ink/10 bg-chrome px-2">
       <div className="flex min-w-0 flex-1 items-end gap-px overflow-x-auto no-scrollbar">
         <button
           type="button"
@@ -790,10 +821,55 @@ function TabStrip({
       </div>
 
       <div className="mb-2 ml-2 flex shrink-0 items-center gap-1.5 text-ink-3">
-        <span className="hidden items-center gap-1 rounded-full border border-ink/10 bg-shell px-2 py-1 font-mono text-[11px] md:inline-flex">
-          <span className="h-1.5 w-1.5 rounded-full bg-apna-green" />
-          4 relays
-        </span>
+        <div ref={relayDetailsRef} className="relative hidden md:block">
+          <button
+            type="button"
+            onClick={() => setRelayDetailsOpen((open) => !open)}
+            aria-expanded={relayDetailsOpen}
+            aria-controls="connected-relays-panel"
+            className={cn(
+              "inline-flex h-7 items-center gap-1 rounded-full border border-ink/10 bg-shell px-2 font-mono text-[11px] transition-colors hover:border-amber-strong/30 hover:bg-surface focus:outline-none focus:ring-2 focus:ring-amber-strong/25",
+              relayDetailsOpen ? "border-amber-strong/40 text-ink" : "text-ink-3"
+            )}
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-apna-green" />
+            {DEFAULT_RELAYS.length} relays
+          </button>
+
+          {relayDetailsOpen && (
+            <div
+              id="connected-relays-panel"
+              role="dialog"
+              aria-label="Connected relay details"
+              className="absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-lg border border-ink/10 bg-shell text-ink shadow-xl"
+            >
+              <div className="border-b border-ink/10 bg-chrome px-3 py-2">
+                <p className="text-sm font-semibold text-ink">Connected relays</p>
+                <p className="mt-0.5 text-xs text-ink-3">
+                  Default Nostr relay pool used by the shell.
+                </p>
+              </div>
+              <div className="max-h-64 overflow-y-auto p-2">
+                {DEFAULT_RELAYS.map((relay) => (
+                  <div
+                    key={relay}
+                    className="flex items-start gap-2 rounded-md px-2 py-2 hover:bg-surface-2"
+                  >
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-apna-green" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-medium text-ink">
+                        {relayDisplayName(relay)}
+                      </p>
+                      <p className="break-all font-mono text-[11px] leading-4 text-ink-3">
+                        {relay}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
         <button
           type="button"
           onClick={onOpenProfile}
@@ -845,6 +921,14 @@ function TabStrip({
       </div>
     </div>
   );
+}
+
+function relayDisplayName(relay: string) {
+  try {
+    return new URL(relay).hostname;
+  } catch {
+    return relay.replace(/^wss?:\/\//, "").replace(/\/$/, "");
+  }
 }
 
 function NewTabWorkspace({
