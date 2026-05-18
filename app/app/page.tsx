@@ -122,6 +122,24 @@ const HOME_TAB: WorkspaceTab = {
   kind: "home",
 };
 
+const WORKSPACE_STATE_STORAGE_KEY = "apna:workspace-tabs:v1";
+const WORKSPACE_STATE_VERSION = 1;
+const VALID_TAB_TONES: WorkspaceTab["tone"][] = [
+  "amber",
+  "orange",
+  "green",
+  "blue",
+  "violet",
+  "plain",
+];
+
+type PersistedWorkspaceState = {
+  version: typeof WORKSPACE_STATE_VERSION;
+  tabs: WorkspaceTab[];
+  activeTabId: string;
+  updatedAt: number;
+};
+
 const FEATURED_APP_DETAILS: Record<string, Pick<CatalogApp, "hint" | "glyph" | "tone" | "description">> = {
   "social-mini-app": {
     hint: "feed · threads · DMs",
@@ -144,6 +162,7 @@ function AppHomeContent() {
   const router = useRouter();
   const [tabs, setTabs] = useState<WorkspaceTab[]>([HOME_TAB]);
   const [activeTabId, setActiveTabId] = useState(HOME_TAB.id);
+  const [workspaceRestored, setWorkspaceRestored] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [profileManagerOpen, setProfileManagerOpen] = useState(false);
   const [tabSwitcherOpen, setTabSwitcherOpen] = useState(false);
@@ -185,40 +204,75 @@ function AppHomeContent() {
     loadActiveProfile();
   }, [loadActiveProfile]);
 
+  useEffect(() => {
+    const restoredState = readPersistedWorkspaceState();
+    if (restoredState) {
+      setTabs(restoredState.tabs);
+      setActiveTabId(restoredState.activeTabId);
+    }
+    setWorkspaceRestored(true);
+  }, []);
+
+  useEffect(() => {
+    if (!workspaceRestored) return;
+    writePersistedWorkspaceState(tabs, activeTabId);
+  }, [activeTabId, tabs, workspaceRestored]);
+
+  useEffect(() => {
+    if (!workspaceRestored) return;
+
+    setTabs((current) => {
+      let changed = false;
+      const nextTabs = current.map((tab) => {
+        if (tab.kind !== "mini-app") return tab;
+
+        const catalogApp = catalogApps.find((app) => app.id === tab.appId);
+        if (!catalogApp) return tab;
+
+        const nextTab = catalogAppToWorkspaceTab(catalogApp);
+        if (workspaceTabsEqual(tab, nextTab)) return tab;
+
+        changed = true;
+        return nextTab;
+      });
+
+      return changed ? nextTabs : current;
+    });
+  }, [catalogApps, workspaceRestored]);
+
+  const replaceWorkspaceUrlForTab = useCallback(
+    (tab: WorkspaceTab) => {
+      router.replace(workspaceUrlForTab(tab), { scroll: false });
+    },
+    [router]
+  );
+
   const openCatalogApp = useCallback(
     (app: CatalogApp) => {
-      const hosting = app.hosting === "url" ? "url" : "nostr";
-      const nextTab: WorkspaceTab = {
-        id: `tab-${app.id}`,
-        appId: app.id,
-        name: app.name,
-        glyph: app.glyph,
-        iconUrl: app.iconUrl,
-        tone: app.tone,
-        kind: "mini-app",
-        hosting,
-        appUrl: hosting === "url" ? app.appUrl : null,
-        htmlContent: hosting === "nostr" ? app.htmlContent : null,
-        defaultDisplay: app.defaultDisplay,
-      };
+      const nextTab = catalogAppToWorkspaceTab(app);
 
       setTabs((current) => {
         if (current.some((tab) => tab.id === nextTab.id)) return current;
         return [...current, nextTab];
       });
       setActiveTabId(nextTab.id);
-
-      const params = new URLSearchParams();
-      params.set("appId", app.id);
-      if (hosting === "url" && app.appUrl) params.set("appUrl", app.appUrl);
-      params.set("isGenerated", String(hosting === "nostr"));
-      if (app.defaultDisplay) params.set("defaultDisplay", app.defaultDisplay);
-      router.replace(`/app?${params.toString()}`);
+      replaceWorkspaceUrlForTab(nextTab);
     },
-    [router]
+    [replaceWorkspaceUrlForTab]
+  );
+
+  const activateTab = useCallback(
+    (tabId: string) => {
+      const nextTab = tabs.find((tab) => tab.id === tabId) ?? HOME_TAB;
+      setActiveTabId(nextTab.id);
+      replaceWorkspaceUrlForTab(nextTab);
+    },
+    [replaceWorkspaceUrlForTab, tabs]
   );
 
   useEffect(() => {
+    if (!workspaceRestored) return;
+
     const appId = searchParams.get("appId");
     if (!appId || tabs.some((tab) => tab.appId === appId)) return;
 
@@ -267,17 +321,24 @@ function AppHomeContent() {
     openCatalogApp,
     searchParams,
     tabs,
+    workspaceRestored,
   ]);
 
-  const closeTab = (tabId: string) => {
+  const closeTab = useCallback((tabId: string) => {
     if (tabId === HOME_TAB.id) return;
+
+    const closingActiveTab = activeTabId === tabId;
+    const tabIndex = tabs.findIndex((tab) => tab.id === tabId);
+    const nextActiveTab = closingActiveTab
+      ? tabs[tabIndex - 1] ?? HOME_TAB
+      : activeTab;
+
     setTabs((current) => current.filter((tab) => tab.id !== tabId));
-    setActiveTabId((current) => {
-      if (current !== tabId) return current;
-      const tabIndex = tabs.findIndex((tab) => tab.id === tabId);
-      return tabs[tabIndex - 1]?.id ?? HOME_TAB.id;
-    });
-  };
+    if (closingActiveTab) {
+      setActiveTabId(nextActiveTab.id);
+      replaceWorkspaceUrlForTab(nextActiveTab);
+    }
+  }, [activeTab, activeTabId, replaceWorkspaceUrlForTab, tabs]);
 
   const handleGenerateApp = (
     htmlContent: string,
@@ -324,9 +385,10 @@ function AppHomeContent() {
 
     await deleteApp(appId);
     setTabs((current) => current.filter((tab) => tab.appId !== appId));
-    setActiveTabId((current) =>
-      current === `tab-${appId}` ? HOME_TAB.id : current
-    );
+    if (activeTabId === `tab-${appId}`) {
+      setActiveTabId(HOME_TAB.id);
+      replaceWorkspaceUrlForTab(HOME_TAB);
+    }
     setGeneratedAppToDelete(null);
     refreshApps();
   };
@@ -339,7 +401,7 @@ function AppHomeContent() {
     return <WorkspaceMessage tone="error" label={`Failed to initialize profile: ${profileError}`} />;
   }
 
-  const goHome = () => setActiveTabId(HOME_TAB.id);
+  const goHome = () => activateTab(HOME_TAB.id);
 
   return (
     <>
@@ -358,7 +420,7 @@ function AppHomeContent() {
             <TabStrip
               tabs={openTabs}
               activeTabId={activeTabId}
-              onActivate={setActiveTabId}
+              onActivate={activateTab}
               onClose={closeTab}
               onGoHome={goHome}
             />
@@ -376,7 +438,7 @@ function AppHomeContent() {
                 openTabs={openTabs}
                 loadingApps={favoritesLoading || generatedLoading}
                 onOpenApp={openCatalogApp}
-                onActivateTab={setActiveTabId}
+                onActivateTab={activateTab}
                 activeProfile={activeProfile}
                 onOpenProfile={() => setProfileManagerOpen(true)}
                 onOpenSettings={() => setSettingsOpen(true)}
@@ -450,7 +512,7 @@ function AppHomeContent() {
         openTabs={openTabs}
         activeTabId={activeTabId}
         onActivateTab={(id) => {
-          setActiveTabId(id);
+          activateTab(id);
           setTabSwitcherOpen(false);
         }}
         onCloseTab={closeTab}
@@ -1437,6 +1499,172 @@ function WorkspaceMessage({
         {label}
       </div>
     </div>
+  );
+}
+
+function catalogAppToWorkspaceTab(app: CatalogApp): WorkspaceTab {
+  const hosting = app.hosting === "url" ? "url" : "nostr";
+
+  return {
+    id: `tab-${app.id}`,
+    appId: app.id,
+    name: app.name,
+    glyph: app.glyph,
+    iconUrl: app.iconUrl,
+    tone: app.tone,
+    kind: "mini-app",
+    hosting,
+    appUrl: hosting === "url" ? app.appUrl : null,
+    htmlContent: hosting === "nostr" ? app.htmlContent : null,
+    defaultDisplay: app.defaultDisplay,
+  };
+}
+
+function workspaceUrlForTab(tab: WorkspaceTab) {
+  if (tab.kind === "home") return "/app";
+
+  const params = new URLSearchParams();
+  params.set("appId", tab.appId);
+  if (tab.hosting === "url" && tab.appUrl) params.set("appUrl", tab.appUrl);
+  params.set("isGenerated", String(tab.hosting === "nostr"));
+  if (tab.defaultDisplay) params.set("defaultDisplay", tab.defaultDisplay);
+
+  return `/app?${params.toString()}`;
+}
+
+function readPersistedWorkspaceState(): { tabs: WorkspaceTab[]; activeTabId: string } | null {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = window.localStorage.getItem(WORKSPACE_STATE_STORAGE_KEY);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw) as Partial<PersistedWorkspaceState>;
+    if (parsed.version !== WORKSPACE_STATE_VERSION || !Array.isArray(parsed.tabs)) {
+      return null;
+    }
+
+    const seenTabIds = new Set<string>();
+    const restoredTabs = parsed.tabs.reduce<WorkspaceTab[]>((acc, tab) => {
+      const restoredTab = normalizePersistedWorkspaceTab(tab);
+      if (!restoredTab || seenTabIds.has(restoredTab.id)) return acc;
+
+      seenTabIds.add(restoredTab.id);
+      acc.push(restoredTab);
+      return acc;
+    }, []);
+    const tabs = [HOME_TAB, ...restoredTabs];
+    const activeTabId =
+      typeof parsed.activeTabId === "string" &&
+      tabs.some((tab) => tab.id === parsed.activeTabId)
+        ? parsed.activeTabId
+        : HOME_TAB.id;
+
+    return { tabs, activeTabId };
+  } catch {
+    return null;
+  }
+}
+
+function writePersistedWorkspaceState(tabs: WorkspaceTab[], activeTabId: string) {
+  if (typeof window === "undefined") return;
+
+  try {
+    const miniAppTabs = tabs
+      .filter((tab) => tab.kind === "mini-app")
+      .map(serializeWorkspaceTab);
+    const persistedActiveTabId = tabs.some((tab) => tab.id === activeTabId)
+      ? activeTabId
+      : HOME_TAB.id;
+    const state: PersistedWorkspaceState = {
+      version: WORKSPACE_STATE_VERSION,
+      tabs: miniAppTabs,
+      activeTabId: persistedActiveTabId,
+      updatedAt: Date.now(),
+    };
+
+    window.localStorage.setItem(WORKSPACE_STATE_STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // Workspace restore is a convenience; quota or privacy-mode failures should not block the shell.
+  }
+}
+
+function normalizePersistedWorkspaceTab(value: unknown): WorkspaceTab | null {
+  const tab = value as Partial<WorkspaceTab>;
+  if (!tab || typeof tab !== "object") return null;
+
+  const appId = typeof tab.appId === "string" ? tab.appId.trim() : "";
+  if (!appId || appId === HOME_TAB.appId) return null;
+
+  const name =
+    typeof tab.name === "string" && tab.name.trim() ? tab.name.trim() : "Mini-app";
+  const glyph =
+    typeof tab.glyph === "string" && tab.glyph.trim()
+      ? tab.glyph.trim().slice(0, 2)
+      : name.charAt(0);
+  const tone = isWorkspaceTabTone(tab.tone) ? tab.tone : toneForName(name);
+  const hosting =
+    tab.hosting === "url" || tab.hosting === "nostr"
+      ? tab.hosting
+      : typeof tab.htmlContent === "string"
+        ? "nostr"
+        : "url";
+  const defaultDisplay =
+    tab.defaultDisplay === "fullscreen" || tab.defaultDisplay === "tab"
+      ? tab.defaultDisplay
+      : undefined;
+
+  return {
+    id: typeof tab.id === "string" && tab.id.trim() ? tab.id.trim() : `tab-${appId}`,
+    appId,
+    name,
+    glyph,
+    iconUrl: typeof tab.iconUrl === "string" ? tab.iconUrl : undefined,
+    tone,
+    kind: "mini-app" as const,
+    hosting,
+    appUrl: typeof tab.appUrl === "string" ? tab.appUrl : null,
+    htmlContent: typeof tab.htmlContent === "string" ? tab.htmlContent : null,
+    defaultDisplay,
+  };
+}
+
+function serializeWorkspaceTab(tab: WorkspaceTab): WorkspaceTab {
+  return {
+    id: tab.id,
+    appId: tab.appId,
+    name: tab.name,
+    glyph: tab.glyph,
+    iconUrl: tab.iconUrl,
+    tone: tab.tone,
+    kind: "mini-app",
+    hosting: tab.hosting,
+    appUrl: tab.appUrl ?? null,
+    htmlContent: tab.htmlContent ?? null,
+    defaultDisplay: tab.defaultDisplay,
+  };
+}
+
+function workspaceTabsEqual(a: WorkspaceTab, b: WorkspaceTab) {
+  return (
+    a.id === b.id &&
+    a.appId === b.appId &&
+    a.name === b.name &&
+    a.glyph === b.glyph &&
+    a.iconUrl === b.iconUrl &&
+    a.tone === b.tone &&
+    a.kind === b.kind &&
+    a.hosting === b.hosting &&
+    a.appUrl === b.appUrl &&
+    a.htmlContent === b.htmlContent &&
+    a.defaultDisplay === b.defaultDisplay
+  );
+}
+
+function isWorkspaceTabTone(value: unknown): value is WorkspaceTab["tone"] {
+  return (
+    typeof value === "string" &&
+    VALID_TAB_TONES.includes(value as WorkspaceTab["tone"])
   );
 }
 
